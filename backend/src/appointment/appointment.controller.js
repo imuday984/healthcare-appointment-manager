@@ -1,7 +1,21 @@
 const prisma = require("../config/prisma");
+
 const {
-    generateSymptomSummary
+    generateSymptomSummary,
+    generatePostVisitSummary
 } = require("../services/ai.service");
+
+const {
+    createCalendarLink
+} = require("../services/calendar.service");
+
+const {
+    sendBookingConfirmation,
+    sendDoctorBookingNotification,
+    sendCancellationEmail,
+    sendDoctorCancellationEmail
+} = require("../services/email.service");
+
 
 // ==========================================
 // BOOK APPOINTMENT
@@ -76,6 +90,7 @@ const bookAppointment = async (req, res) => {
             });
         }
 
+        // Create appointment
         const appointment = await prisma.appointment.create({
             data: {
                 doctorId: Number(doctorId),
@@ -87,9 +102,48 @@ const bookAppointment = async (req, res) => {
             }
         });
 
+        // Get patient details
+        const patient = await prisma.user.findUnique({
+            where: {
+                id: req.user.userId
+            }
+        });
+
+        // Get doctor details
+        const doctorDetails = await prisma.doctor.findUnique({
+            where: {
+                id: Number(doctorId)
+            },
+            include: {
+                user: true
+            }
+        });
+
+        // Send booking emails
+        if (patient && doctorDetails) {
+            await sendBookingConfirmation(
+                patient.email,
+                doctorDetails.user.name,
+                appointment.startTime
+            );
+
+            await sendDoctorBookingNotification(
+                doctorDetails.user.email,
+                patient.name,
+                appointment.startTime
+            );
+        }
+
+        const calendarLink = createCalendarLink({
+        doctorName: doctorDetails.user.name,
+        startTime: appointment.startTime,
+        endTime: appointment.endTime
+        });
+
         res.status(201).json({
             message: "Appointment booked successfully",
-            appointment
+            appointment,
+            calendarLink
         });
 
     } catch (error) {
@@ -130,16 +184,17 @@ const getMyAppointments = async (req, res) => {
                 }
             },
             orderBy: {
-                startTime: "asc"
+                startTime: "desc"
             }
         });
 
         res.status(200).json({
+            count: appointments.length,
             appointments
         });
 
     } catch (error) {
-        console.error("Get appointments error:", error);
+        console.error("Get patient history error:", error);
 
         res.status(500).json({
             message: "Server error"
@@ -204,6 +259,7 @@ const cancelAppointment = async (req, res) => {
     try {
         const appointmentId = Number(req.params.id);
 
+        // Find appointment
         const appointment = await prisma.appointment.findUnique({
             where: {
                 id: appointmentId
@@ -216,18 +272,38 @@ const cancelAppointment = async (req, res) => {
             });
         }
 
+        // Only appointment owner can cancel
         if (appointment.patientId !== req.user.userId) {
             return res.status(403).json({
                 message: "You cannot cancel this appointment"
             });
         }
 
+        // Prevent cancelling twice
         if (appointment.status === "CANCELLED") {
             return res.status(400).json({
                 message: "Appointment is already cancelled"
             });
         }
 
+        // Get patient details
+        const patient = await prisma.user.findUnique({
+            where: {
+                id: appointment.patientId
+            }
+        });
+
+        // Get doctor details
+        const doctor = await prisma.doctor.findUnique({
+            where: {
+                id: appointment.doctorId
+            },
+            include: {
+                user: true
+            }
+        });
+
+        // Update appointment
         const updatedAppointment =
             await prisma.appointment.update({
                 where: {
@@ -237,6 +313,24 @@ const cancelAppointment = async (req, res) => {
                     status: "CANCELLED"
                 }
             });
+
+        // Send cancellation emails
+        if (patient && doctor) {
+
+            // Patient notification
+            await sendCancellationEmail(
+                patient.email,
+                doctor.user.name,
+                appointment.startTime
+            );
+
+            // Doctor notification
+            await sendDoctorCancellationEmail(
+                doctor.user.email,
+                patient.name,
+                appointment.startTime
+            );
+        }
 
         res.status(200).json({
             message: "Appointment cancelled successfully",
@@ -398,7 +492,6 @@ const generateAISummary = async (req, res) => {
             });
         }
 
-        // Only the patient who owns the appointment can use this
         if (appointment.patientId !== req.user.userId) {
             return res.status(403).json({
                 message: "You cannot access this appointment"
@@ -411,19 +504,16 @@ const generateAISummary = async (req, res) => {
             });
         }
 
-        // Call OpenAI service
         const summary = await generateSymptomSummary(
             appointment.symptoms
         );
 
-        // AI failure should not break the application
         if (!summary) {
             return res.status(503).json({
                 message: "AI service temporarily unavailable"
             });
         }
 
-        // Save AI result
         const updatedAppointment =
             await prisma.appointment.update({
                 where: {
@@ -450,6 +540,83 @@ const generateAISummary = async (req, res) => {
 
 
 // ==========================================
+// GENERATE AI POST-VISIT SUMMARY
+// ==========================================
+const generateAIPostVisitSummary = async (req, res) => {
+    try {
+        const appointmentId = Number(req.params.id);
+
+        const appointment = await prisma.appointment.findUnique({
+            where: {
+                id: appointmentId
+            }
+        });
+
+        if (!appointment) {
+            return res.status(404).json({
+                message: "Appointment not found"
+            });
+        }
+
+        const doctor = await prisma.doctor.findUnique({
+            where: {
+                userId: req.user.userId
+            }
+        });
+
+        if (!doctor || doctor.id !== appointment.doctorId) {
+            return res.status(403).json({
+                message: "You cannot modify this appointment"
+            });
+        }
+
+        if (!appointment.notes) {
+            return res.status(400).json({
+                message: "Consultation notes are required"
+            });
+        }
+
+        const summary = await generatePostVisitSummary(
+            appointment.notes,
+            appointment.prescription
+        );
+
+        if (!summary) {
+            return res.status(503).json({
+                message: "AI service temporarily unavailable"
+            });
+        }
+
+        const updatedAppointment =
+            await prisma.appointment.update({
+                where: {
+                    id: appointmentId
+                },
+                data: {
+                    postVisitSummary: summary,
+                    status: "COMPLETED"
+                }
+            });
+
+        res.status(200).json({
+            message: "Post-visit AI summary generated successfully",
+            summary: updatedAppointment.postVisitSummary
+        });
+
+    } catch (error) {
+        console.error(
+            "Post-visit AI summary error:",
+            error
+        );
+
+        res.status(500).json({
+            message: "Server error"
+        });
+    }
+};
+
+
+// ==========================================
 // EXPORTS
 // ==========================================
 module.exports = {
@@ -459,5 +626,6 @@ module.exports = {
     cancelAppointment,
     addConsultationNotes,
     addPrescription,
-    generateAISummary
+    generateAISummary,
+    generateAIPostVisitSummary
 };

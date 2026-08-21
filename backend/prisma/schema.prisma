@@ -54,7 +54,7 @@ model Appointment {
   symptoms     String?
   prescription String?
   aiSummary    String?
-  aiUrgency    String?
+  postVisitSummary String?
 
   doctor  Doctor @relation(fields: [doctorId], references: [id])
   patient User   @relation(fields: [patientId], references: [id])

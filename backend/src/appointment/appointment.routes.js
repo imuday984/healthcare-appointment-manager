@@ -12,10 +12,12 @@ const {
     cancelAppointment,
     addConsultationNotes,
     addPrescription,
-    generateAISummary
+    generateAISummary,
+    generateAIPostVisitSummary
 } = require("./appointment.controller");
 
 const router = express.Router();
+
 
 // ==========================================
 // PATIENT ROUTES
@@ -73,16 +75,26 @@ router.patch(
     addPrescription
 );
 
+// Generate post-visit AI summary
+router.post(
+    "/:id/post-visit-summary",
+    authenticate,
+    authorize("DOCTOR"),
+    generateAIPostVisitSummary
+);
+
+
 // ==========================================
-// AI ROUTES
+// AI PATIENT ROUTES
 // ==========================================
 
-// Generate AI pre-visit summary
+// Generate pre-visit AI summary
 router.post(
     "/:id/ai-summary",
     authenticate,
     authorize("PATIENT"),
     generateAISummary
 );
+
 
 module.exports = router;

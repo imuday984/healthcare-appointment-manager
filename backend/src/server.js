@@ -6,6 +6,7 @@ const authRoutes = require("./auth/auth.routes");
 const authTestRoutes = require("./auth/auth.test.routes");
 const doctorRoutes = require("./doctor/doctor.routes");
 const appointmentRoutes = require("./appointment/appointment.routes");
+const { startReminderService } = require("./services/reminder.service");
 
 
 const app = express();
@@ -29,4 +30,6 @@ const PORT = process.env.PORT || 5000;
 
 app.listen(PORT, () => {
     console.log(`Server running on port ${PORT}`);
+
+    startReminderService();
 });
