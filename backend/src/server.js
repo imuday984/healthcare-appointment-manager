@@ -11,7 +11,15 @@ const { startReminderService } = require("./services/reminder.service");
 
 const app = express();
 
-app.use(cors());
+app.use(
+    cors({
+        origin: [
+            "http://localhost:5173",
+            "https://healthcare-appointment-manager-red.vercel.app"
+        ],
+        credentials: true
+    })
+);
 app.use(express.json());
 app.use("/api/auth", authTestRoutes);
 app.use("/api/doctors", doctorRoutes);
