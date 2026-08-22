@@ -9,23 +9,35 @@ function DoctorDashboard() {
     const [appointments, setAppointments] = useState([]);
     const [loading, setLoading] = useState(true);
     const [error, setError] = useState("");
-
     const [notes, setNotes] = useState({});
     const [prescriptions, setPrescriptions] = useState({});
     const [message, setMessage] = useState("");
 
-    const user = JSON.parse(localStorage.getItem("user") || "{}");
+    const user = JSON.parse(
+        localStorage.getItem("user") || "{}"
+    );
+
+    // ==========================================
+    // LOAD DOCTOR APPOINTMENTS
+    // ==========================================
 
     const loadAppointments = async () => {
         try {
-            const response =
-                await API.get("/appointments/doctor");
+            setError("");
+
+            const response = await API.get(
+                "/appointments/doctor"
+            );
 
             setAppointments(
                 response.data.appointments || []
             );
+
         } catch (err) {
-            console.error(err);
+            console.error(
+                "Load appointments error:",
+                err
+            );
 
             if (err.response?.status === 401) {
                 localStorage.clear();
@@ -37,6 +49,7 @@ function DoctorDashboard() {
                 err.response?.data?.message ||
                 "Unable to load appointments"
             );
+
         } finally {
             setLoading(false);
         }
@@ -46,57 +59,127 @@ function DoctorDashboard() {
         loadAppointments();
     }, []);
 
+    // ==========================================
+    // LOGOUT
+    // ==========================================
+
     const logout = () => {
         localStorage.clear();
         navigate("/login");
     };
 
+    // ==========================================
+    // SAVE CONSULTATION NOTES
+    // ==========================================
+
     const addNotes = async (appointmentId) => {
+        const noteText =
+            notes[appointmentId]?.trim();
+
+        if (!noteText) {
+            setError(
+                "Please enter consultation notes."
+            );
+            setMessage("");
+            return;
+        }
+
         try {
+            setError("");
+            setMessage("");
+
             await API.patch(
                 `/appointments/${appointmentId}/notes`,
                 {
-                    notes: notes[appointmentId] || ""
+                    notes: noteText
                 }
             );
 
-            setMessage("Consultation notes saved successfully.");
+            setMessage(
+                "Consultation notes saved successfully."
+            );
+
             await loadAppointments();
 
         } catch (err) {
+            console.error(
+                "Save notes error:",
+                err
+            );
+
             setError(
                 err.response?.data?.message ||
                 "Failed to save notes"
             );
+
+            setMessage("");
         }
     };
 
+    // ==========================================
+    // SAVE PRESCRIPTION
+    // ==========================================
+
     const addPrescription = async (appointmentId) => {
+        const prescriptionText =
+            prescriptions[appointmentId]?.trim();
+
+        if (!prescriptionText) {
+            setError(
+                "Please enter a prescription."
+            );
+            setMessage("");
+            return;
+        }
+
         try {
+            setError("");
+            setMessage("");
+
             await API.patch(
                 `/appointments/${appointmentId}/prescription`,
                 {
-                    prescription:
-                        prescriptions[appointmentId] || ""
+                    prescription: prescriptionText
                 }
             );
 
-            setMessage("Prescription saved successfully.");
+            setMessage(
+                "Prescription saved successfully."
+            );
+
             await loadAppointments();
 
         } catch (err) {
+            console.error(
+                "Save prescription error:",
+                err
+            );
+
             setError(
                 err.response?.data?.message ||
                 "Failed to save prescription"
             );
+
+            setMessage("");
         }
     };
 
-    const generatePostVisitSummary = async (appointmentId) => {
-        try {
-            setMessage("Generating AI summary...");
+    // ==========================================
+    // GENERATE AI POST-VISIT SUMMARY
+    // ==========================================
 
-            await API.post(`/appointments/${appointment.id}/post-visit-summary`);
+    const generatePostVisitSummary = async (
+        appointmentId
+    ) => {
+        try {
+            setError("");
+            setMessage(
+                "Generating AI summary..."
+            );
+
+            await API.post(
+                `/appointments/${appointmentId}/post-visit-summary`
+            );
 
             setMessage(
                 "AI post-visit summary generated successfully."
@@ -105,6 +188,13 @@ function DoctorDashboard() {
             await loadAppointments();
 
         } catch (err) {
+            console.error(
+                "Post-visit AI error:",
+                err
+            );
+
+            setMessage("");
+
             setError(
                 err.response?.data?.message ||
                 "Failed to generate AI summary"
@@ -112,16 +202,24 @@ function DoctorDashboard() {
         }
     };
 
+    // ==========================================
+    // RENDER
+    // ==========================================
+
     return (
         <div className="dashboard-page">
 
+            {/* HEADER */}
             <header className="dashboard-header">
 
                 <div>
-                    <h1>Healthcare Appointment Manager</h1>
+                    <h1>
+                        Healthcare Appointment Manager
+                    </h1>
 
                     <p>
-                        Welcome, {user.name || "Doctor"}
+                        Welcome,{" "}
+                        {user.name || "Doctor"}
                     </p>
                 </div>
 
@@ -134,11 +232,15 @@ function DoctorDashboard() {
 
             </header>
 
+            {/* MAIN CONTENT */}
             <main className="dashboard-content">
 
+                {/* PAGE TITLE */}
                 <div className="page-title">
 
-                    <h2>Doctor Appointments</h2>
+                    <h2>
+                        Doctor Appointments
+                    </h2>
 
                     <span>
                         {appointments.length} appointment
@@ -149,24 +251,28 @@ function DoctorDashboard() {
 
                 </div>
 
+                {/* SUCCESS MESSAGE */}
                 {message && (
                     <div className="message-card">
                         {message}
                     </div>
                 )}
 
+                {/* ERROR MESSAGE */}
                 {error && (
                     <div className="message-card error">
                         {error}
                     </div>
                 )}
 
+                {/* LOADING */}
                 {loading && (
                     <div className="message-card">
                         Loading appointments...
                     </div>
                 )}
 
+                {/* NO APPOINTMENTS */}
                 {!loading &&
                     appointments.length === 0 && (
                         <div className="message-card">
@@ -174,234 +280,243 @@ function DoctorDashboard() {
                         </div>
                     )}
 
+                {/* APPOINTMENT GRID */}
                 <div className="appointment-grid">
 
-                    {appointments.map((appointment) => {
+                    {appointments.map(
+                        (appointment) => {
 
-                        const date = new Date(
-                            appointment.startTime
-                        );
+                            const date =
+                                new Date(
+                                    appointment.startTime
+                                );
 
-                        return (
-                            <div
-                                className="appointment-card"
-                                key={appointment.id}
-                            >
+                            return (
+                                <div
+                                    className="appointment-card"
+                                    key={appointment.id}
+                                >
 
-                                <div className="card-header">
+                                    {/* CARD HEADER */}
+                                    <div className="card-header">
 
-                                    <div>
+                                        <div>
 
-                                        <h3>
-                                            {appointment.patient?.name ||
-                                                "Patient"}
-                                        </h3>
+                                            <h3>
+                                                {appointment
+                                                    .patient
+                                                    ?.name ||
+                                                    "Patient"}
+                                            </h3>
 
-                                        <p className="specialization">
-                                            {appointment.patient?.email}
-                                        </p>
-
-                                    </div>
-
-                                    <span
-                                        className={`status ${appointment.status.toLowerCase()}`}
-                                    >
-                                        {appointment.status}
-                                    </span>
-
-                                </div>
-
-                                <div className="appointment-info">
-
-                                    <div>
-                                        <span>Date</span>
-
-                                        <strong>
-                                            {date.toLocaleDateString()}
-                                        </strong>
-                                    </div>
-
-                                    <div>
-                                        <span>Time</span>
-
-                                        <strong>
-                                            {date.toLocaleTimeString(
-                                                [],
+                                            <p className="specialization">
                                                 {
-                                                    hour: "2-digit",
-                                                    minute: "2-digit"
+                                                    appointment
+                                                        .patient
+                                                        ?.email
                                                 }
-                                            )}
-                                        </strong>
+                                            </p>
+
+                                        </div>
+
+                                        <span
+                                            className={`status ${appointment.status.toLowerCase()}`}
+                                        >
+                                            {
+                                                appointment.status
+                                            }
+                                        </span>
+
                                     </div>
 
-                                </div>
+                                    {/* DATE / TIME */}
+                                    <div className="appointment-info">
 
+                                        <div>
+                                            <span>
+                                                Date
+                                            </span>
 
-                                {/* Symptoms */}
+                                            <strong>
+                                                {date.toLocaleDateString()}
+                                            </strong>
+                                        </div>
 
-                                {appointment.symptoms && (
+                                        <div>
+                                            <span>
+                                                Time
+                                            </span>
+
+                                            <strong>
+                                                {date.toLocaleTimeString(
+                                                    [],
+                                                    {
+                                                        hour: "2-digit",
+                                                        minute: "2-digit"
+                                                    }
+                                                )}
+                                            </strong>
+                                        </div>
+
+                                    </div>
+
+                                    {/* PATIENT SYMPTOMS */}
+                                    {appointment.symptoms && (
+                                        <div className="info-section">
+
+                                            <h4>
+                                                Patient Symptoms
+                                            </h4>
+
+                                            <p>
+                                                {
+                                                    appointment.symptoms
+                                                }
+                                            </p>
+
+                                        </div>
+                                    )}
+
+                                    {/* CONSULTATION NOTES */}
                                     <div className="info-section">
 
                                         <h4>
-                                            Patient Symptoms
+                                            Consultation Notes
                                         </h4>
 
-                                        <p>
-                                            {appointment.symptoms}
-                                        </p>
+                                        <textarea
+                                            placeholder={
+                                                appointment.notes ||
+                                                "Enter consultation notes..."
+                                            }
+                                            value={
+                                                notes[
+                                                    appointment.id
+                                                ] ??
+                                                appointment.notes ??
+                                                ""
+                                            }
+                                            onChange={(e) =>
+                                                setNotes({
+                                                    ...notes,
+                                                    [appointment.id]:
+                                                        e.target.value
+                                                })
+                                            }
+                                        />
+
+                                        <button
+                                            className="action-btn"
+                                            onClick={() =>
+                                                addNotes(
+                                                    appointment.id
+                                                )
+                                            }
+                                        >
+                                            Save Notes
+                                        </button>
 
                                     </div>
-                                )}
 
-
-                                {/* Consultation Notes */}
-
-                                <div className="info-section">
-
-                                    <h4>
-                                        Consultation Notes
-                                    </h4>
-
-                                    <textarea
-                                        placeholder={
-                                            appointment.notes ||
-                                            "Enter consultation notes..."
-                                        }
-                                        value={
-                                            notes[
-                                                appointment.id
-                                            ] ??
-                                            appointment.notes ??
-                                            ""
-                                        }
-                                        onChange={(e) =>
-                                            setNotes({
-                                                ...notes,
-                                                [appointment.id]:
-                                                    e.target.value
-                                            })
-                                        }
-                                    />
-
-                                    <button
-                                        className="action-btn"
-                                        onClick={() =>
-                                            addNotes(
-                                                appointment.id
-                                            )
-                                        }
-                                    >
-                                        Save Notes
-                                    </button>
-
-                                </div>
-
-
-                                {/* Prescription */}
-
-                                <div className="info-section">
-
-                                    <h4>
-                                        Prescription
-                                    </h4>
-
-                                    <textarea
-                                        placeholder={
-                                            appointment.prescription ||
-                                            "Enter prescription..."
-                                        }
-                                        value={
-                                            prescriptions[
-                                                appointment.id
-                                            ] ??
-                                            appointment.prescription ??
-                                            ""
-                                        }
-                                        onChange={(e) =>
-                                            setPrescriptions({
-                                                ...prescriptions,
-                                                [appointment.id]:
-                                                    e.target.value
-                                            })
-                                        }
-                                    />
-
-                                    <button
-                                        className="action-btn"
-                                        onClick={() =>
-                                            addPrescription(
-                                                appointment.id
-                                            )
-                                        }
-                                    >
-                                        Save Prescription
-                                    </button>
-
-                                </div>
-
-
-                                {/* Existing AI summary */}
-
-                                {appointment.aiSummary && (
-                                    <div className="info-section ai-section">
+                                    {/* PRESCRIPTION */}
+                                    <div className="info-section">
 
                                         <h4>
-                                            AI Pre-Visit Summary
+                                            Prescription
                                         </h4>
 
-                                        <pre>
-                                            {
-                                                appointment.aiSummary
+                                        <textarea
+                                            placeholder={
+                                                appointment.prescription ||
+                                                "Enter prescription..."
                                             }
-                                        </pre>
+                                            value={
+                                                prescriptions[
+                                                    appointment.id
+                                                ] ??
+                                                appointment.prescription ??
+                                                ""
+                                            }
+                                            onChange={(e) =>
+                                                setPrescriptions({
+                                                    ...prescriptions,
+                                                    [appointment.id]:
+                                                        e.target.value
+                                                })
+                                            }
+                                        />
+
+                                        <button
+                                            className="action-btn"
+                                            onClick={() =>
+                                                addPrescription(
+                                                    appointment.id
+                                                )
+                                            }
+                                        >
+                                            Save Prescription
+                                        </button>
 
                                     </div>
-                                )}
 
+                                    {/* PRE-VISIT AI SUMMARY */}
+                                    {appointment.aiSummary && (
+                                        <div className="info-section ai-section">
 
-                                {/* Post Visit Summary */}
+                                            <h4>
+                                                AI Pre-Visit Summary
+                                            </h4>
 
-                                {appointment.postVisitSummary && (
-                                    <div className="info-section ai-section">
+                                            <pre>
+                                                {
+                                                    appointment.aiSummary
+                                                }
+                                            </pre>
 
-                                        <h4>
-                                            AI Post-Visit Summary
-                                        </h4>
+                                        </div>
+                                    )}
 
-                                        <pre>
-                                            {
-                                                appointment.postVisitSummary
+                                    {/* POST-VISIT AI SUMMARY */}
+                                    {appointment.postVisitSummary && (
+                                        <div className="info-section ai-section">
+
+                                            <h4>
+                                                AI Post-Visit Summary
+                                            </h4>
+
+                                            <pre>
+                                                {
+                                                    appointment.postVisitSummary
+                                                }
+                                            </pre>
+
+                                        </div>
+                                    )}
+
+                                    {/* GENERATE AI POST-VISIT SUMMARY */}
+                                    {appointment.status !==
+                                        "CANCELLED" && (
+                                        <button
+                                            className="ai-btn"
+                                            onClick={() =>
+                                                generatePostVisitSummary(
+                                                    appointment.id
+                                                )
                                             }
-                                        </pre>
+                                        >
+                                            Generate AI Post-Visit Summary
+                                        </button>
+                                    )}
 
-                                    </div>
-                                )}
-
-
-                                {/* Generate AI Summary */}
-
-                                {appointment.status !==
-                                    "CANCELLED" && (
-                                    <button
-                                        className="ai-btn"
-                                        onClick={() =>
-                                            generatePostVisitSummary(
-                                                appointment.id
-                                            )
-                                        }
-                                    >
-                                        Generate AI Post-Visit Summary
-                                    </button>
-                                )}
-
-                            </div>
-                        );
-                    })}
+                                </div>
+                            );
+                        }
+                    )}
 
                 </div>
 
             </main>
+
         </div>
     );
 }
