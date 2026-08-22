@@ -6,23 +6,31 @@ const EMAIL_USER = process.env.EMAIL_USER;
 const EMAIL_PASSWORD = process.env.EMAIL_PASSWORD;
 const EMAIL_FROM = process.env.EMAIL_FROM || EMAIL_USER;
 
-// Validate email configuration
-if (!EMAIL_HOST || !EMAIL_USER || !EMAIL_PASSWORD) {
-    console.warn(
-        "⚠️ Email configuration is incomplete. " +
-        "EMAIL_HOST, EMAIL_USER and EMAIL_PASSWORD are required."
-    );
-}
+console.log("=================================");
+console.log("EMAIL SERVICE INITIALIZED");
+console.log("EMAIL_HOST:", EMAIL_HOST || "NOT SET");
+console.log("EMAIL_PORT:", EMAIL_PORT);
+console.log("EMAIL_USER:", EMAIL_USER || "NOT SET");
+console.log("EMAIL_FROM:", EMAIL_FROM || "NOT SET");
+console.log(
+    "EMAIL_PASSWORD:",
+    EMAIL_PASSWORD ? "SET" : "NOT SET"
+);
+console.log("=================================");
 
 const transporter = nodemailer.createTransport({
     host: EMAIL_HOST,
     port: EMAIL_PORT,
-    secure: EMAIL_PORT === 465,
+    secure: false,
 
     auth: {
         user: EMAIL_USER,
         pass: EMAIL_PASSWORD
     },
+
+    connectionTimeout: 15000,
+    greetingTimeout: 15000,
+    socketTimeout: 15000,
 
     tls: {
         minVersion: "TLSv1.2"
@@ -31,26 +39,148 @@ const transporter = nodemailer.createTransport({
 
 
 // ==========================================
-// GENERIC EMAIL
+// VERIFY SMTP CONNECTION
 // ==========================================
 
-const sendEmail = async (to, subject, text) => {
+const verifyEmailConnection = async () => {
     try {
-        await transporter.sendMail({
+        console.log("Testing SMTP connection...");
+
+        await transporter.verify();
+
+        console.log(
+            "SMTP connection verified successfully."
+        );
+
+        return true;
+
+    } catch (error) {
+
+        console.error(
+            "SMTP connection verification failed:"
+        );
+
+        console.error(
+            "Code:",
+            error.code
+        );
+
+        console.error(
+            "Command:",
+            error.command
+        );
+
+        console.error(
+            "Response:",
+            error.response
+        );
+
+        console.error(
+            "Message:",
+            error.message
+        );
+
+        return false;
+    }
+};
+
+
+// ==========================================
+// SEND EMAIL
+// ==========================================
+
+const sendEmail = async (
+    to,
+    subject,
+    text
+) => {
+
+    console.log("=================================");
+    console.log("ATTEMPTING TO SEND EMAIL");
+    console.log("To:", to);
+    console.log("Subject:", subject);
+    console.log("SMTP Host:", EMAIL_HOST);
+    console.log("SMTP Port:", EMAIL_PORT);
+    console.log("SMTP User:", EMAIL_USER);
+    console.log("=================================");
+
+    try {
+
+        const info = await transporter.sendMail({
             from: EMAIL_FROM,
             to,
             subject,
             text
         });
 
-        console.log(`Email sent successfully to ${to}`);
+        console.log(
+            "EMAIL SENT SUCCESSFULLY"
+        );
+
+        console.log(
+            "Message ID:",
+            info.messageId
+        );
+
+        console.log(
+            "Accepted:",
+            info.accepted
+        );
+
+        console.log(
+            "Rejected:",
+            info.rejected
+        );
+
+        console.log(
+            "Response:",
+            info.response
+        );
+
+        console.log(
+            "================================="
+        );
 
         return true;
 
     } catch (error) {
+
         console.error(
-            "Email sending failed:",
+            "EMAIL SENDING FAILED"
+        );
+
+        console.error(
+            "Code:",
+            error.code
+        );
+
+        console.error(
+            "Command:",
+            error.command
+        );
+
+        console.error(
+            "Response:",
+            error.response
+        );
+
+        console.error(
+            "Response Code:",
+            error.responseCode
+        );
+
+        console.error(
+            "Message:",
             error.message
+        );
+
+        console.error(
+            "Full Error:",
+            error
+        );
+
+        console.error(
+            "================================="
         );
 
         return false;
@@ -67,6 +197,7 @@ const sendBookingConfirmation = async (
     doctorName,
     startTime
 ) => {
+
     return sendEmail(
         email,
         "Appointment Booking Confirmation",
@@ -89,6 +220,7 @@ const sendDoctorBookingNotification = async (
     patientName,
     startTime
 ) => {
+
     return sendEmail(
         email,
         "New Appointment Booked",
@@ -112,6 +244,7 @@ const sendCancellationEmail = async (
     doctorName,
     startTime
 ) => {
+
     return sendEmail(
         email,
         "Appointment Cancelled",
@@ -133,6 +266,7 @@ const sendDoctorCancellationEmail = async (
     patientName,
     startTime
 ) => {
+
     return sendEmail(
         email,
         "Appointment Cancelled",
@@ -152,5 +286,6 @@ module.exports = {
     sendBookingConfirmation,
     sendDoctorBookingNotification,
     sendCancellationEmail,
-    sendDoctorCancellationEmail
+    sendDoctorCancellationEmail,
+    verifyEmailConnection
 };
