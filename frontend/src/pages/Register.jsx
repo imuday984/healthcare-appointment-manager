@@ -88,13 +88,16 @@ function Register() {
             }, 2500);
 
         } catch (error) {
-            console.error("Registration error:", error);
+        console.error("REGISTRATION ERROR:", error);
 
-            setError(
-                error.response?.data?.message ||
-                "Registration failed. Please try again."
-            );
-        } finally {
+    console.log("STATUS:", error.response?.status);
+    console.log("DATA:", error.response?.data);
+
+    setError(
+        error.response?.data?.message ||
+        "Registration failed. Please try again."
+    );
+} finally {
             setLoading(false);
         }
     };
