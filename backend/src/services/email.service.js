@@ -1,92 +1,179 @@
-const nodemailer = require("nodemailer");
+const https = require("https");
 
-const EMAIL_HOST = process.env.EMAIL_HOST;
-const EMAIL_PORT = Number(process.env.EMAIL_PORT || 587);
-const EMAIL_USER = process.env.EMAIL_USER;
-const EMAIL_PASSWORD = process.env.EMAIL_PASSWORD;
-const EMAIL_FROM = process.env.EMAIL_FROM || EMAIL_USER;
-
-console.log("=================================");
-console.log("EMAIL SERVICE INITIALIZED");
-console.log("EMAIL_HOST:", EMAIL_HOST || "NOT SET");
-console.log("EMAIL_PORT:", EMAIL_PORT);
-console.log("EMAIL_USER:", EMAIL_USER || "NOT SET");
-console.log("EMAIL_FROM:", EMAIL_FROM || "NOT SET");
-console.log(
-    "EMAIL_PASSWORD:",
-    EMAIL_PASSWORD ? "SET" : "NOT SET"
-);
-console.log("=================================");
-
-const transporter = nodemailer.createTransport({
-    host: EMAIL_HOST,
-    port: EMAIL_PORT,
-    secure: false,
-
-    auth: {
-        user: EMAIL_USER,
-        pass: EMAIL_PASSWORD
-    },
-
-    connectionTimeout: 15000,
-    greetingTimeout: 15000,
-    socketTimeout: 15000,
-
-    tls: {
-        minVersion: "TLSv1.2"
-    }
-});
+const BREVO_API_KEY = process.env.BREVO_API_KEY;
+const EMAIL_FROM = process.env.EMAIL_FROM;
+const EMAIL_FROM_NAME =
+    process.env.EMAIL_FROM_NAME ||
+    "Healthcare Appointment Manager";
 
 
 // ==========================================
-// VERIFY SMTP CONNECTION
+// BREVO API REQUEST
 // ==========================================
 
-const verifyEmailConnection = async () => {
-    try {
-        console.log("Testing SMTP connection...");
+const sendBrevoEmail = (
+    to,
+    subject,
+    text
+) => {
+    return new Promise((resolve, reject) => {
 
-        await transporter.verify();
+        if (!BREVO_API_KEY) {
+            return reject(
+                new Error("BREVO_API_KEY is not configured")
+            );
+        }
 
-        console.log(
-            "SMTP connection verified successfully."
+        if (!EMAIL_FROM) {
+            return reject(
+                new Error("EMAIL_FROM is not configured")
+            );
+        }
+
+        const payload = JSON.stringify({
+            sender: {
+                name: EMAIL_FROM_NAME,
+                email: EMAIL_FROM
+            },
+
+            to: [
+                {
+                    email: to
+                }
+            ],
+
+            subject: subject,
+
+            textContent: text
+        });
+
+        const options = {
+            hostname: "api.brevo.com",
+
+            path: "/v3/smtp/email",
+
+            method: "POST",
+
+            headers: {
+                "accept": "application/json",
+
+                "api-key": BREVO_API_KEY,
+
+                "content-type":
+                    "application/json",
+
+                "content-length":
+                    Buffer.byteLength(payload)
+            },
+
+            timeout: 15000
+        };
+
+
+        const request =
+            https.request(
+                options,
+                (response) => {
+
+                    let data = "";
+
+                    response.on(
+                        "data",
+                        (chunk) => {
+                            data += chunk;
+                        }
+                    );
+
+
+                    response.on(
+                        "end",
+                        () => {
+
+                            console.log(
+                                "Brevo API status:",
+                                response.statusCode
+                            );
+
+
+                            if (
+                                response.statusCode >= 200 &&
+                                response.statusCode < 300
+                            ) {
+
+                                console.log(
+                                    "Email sent successfully to:",
+                                    to
+                                );
+
+                                console.log(
+                                    "Brevo response:",
+                                    data
+                                );
+
+                                resolve(true);
+
+                            } else {
+
+                                console.error(
+                                    "Brevo API email failed"
+                                );
+
+                                console.error(
+                                    "Status:",
+                                    response.statusCode
+                                );
+
+                                console.error(
+                                    "Response:",
+                                    data
+                                );
+
+                                resolve(false);
+                            }
+                        }
+                    );
+                }
+            );
+
+
+        request.on(
+            "timeout",
+            () => {
+
+                console.error(
+                    "Brevo API request timed out"
+                );
+
+                request.destroy();
+
+                resolve(false);
+            }
         );
 
-        return true;
 
-    } catch (error) {
+        request.on(
+            "error",
+            (error) => {
 
-        console.error(
-            "SMTP connection verification failed:"
+                console.error(
+                    "Brevo API request error:",
+                    error.message
+                );
+
+                resolve(false);
+            }
         );
 
-        console.error(
-            "Code:",
-            error.code
-        );
 
-        console.error(
-            "Command:",
-            error.command
-        );
+        request.write(payload);
 
-        console.error(
-            "Response:",
-            error.response
-        );
-
-        console.error(
-            "Message:",
-            error.message
-        );
-
-        return false;
-    }
+        request.end();
+    });
 };
 
 
 // ==========================================
-// SEND EMAIL
+// GENERIC EMAIL
 // ==========================================
 
 const sendEmail = async (
@@ -95,92 +182,64 @@ const sendEmail = async (
     text
 ) => {
 
-    console.log("=================================");
-    console.log("ATTEMPTING TO SEND EMAIL");
-    console.log("To:", to);
-    console.log("Subject:", subject);
-    console.log("SMTP Host:", EMAIL_HOST);
-    console.log("SMTP Port:", EMAIL_PORT);
-    console.log("SMTP User:", EMAIL_USER);
-    console.log("=================================");
-
     try {
 
-        const info = await transporter.sendMail({
-            from: EMAIL_FROM,
-            to,
-            subject,
-            text
-        });
-
         console.log(
-            "EMAIL SENT SUCCESSFULLY"
+            "================================="
         );
 
         console.log(
-            "Message ID:",
-            info.messageId
+            "BREVO API EMAIL"
         );
 
         console.log(
-            "Accepted:",
-            info.accepted
+            "To:",
+            to
         );
 
         console.log(
-            "Rejected:",
-            info.rejected
+            "Subject:",
+            subject
         );
 
         console.log(
-            "Response:",
-            info.response
+            "From:",
+            EMAIL_FROM
+        );
+
+        console.log(
+            "API Key:",
+            BREVO_API_KEY
+                ? "SET"
+                : "NOT SET"
         );
 
         console.log(
             "================================="
         );
 
-        return true;
+
+        const result =
+            await sendBrevoEmail(
+                to,
+                subject,
+                text
+            );
+
+
+        console.log(
+            "Email result:",
+            result
+        );
+
+
+        return result;
 
     } catch (error) {
 
         console.error(
-            "EMAIL SENDING FAILED"
-        );
-
-        console.error(
-            "Code:",
-            error.code
-        );
-
-        console.error(
-            "Command:",
-            error.command
-        );
-
-        console.error(
-            "Response:",
-            error.response
-        );
-
-        console.error(
-            "Response Code:",
-            error.responseCode
-        );
-
-        console.error(
-            "Message:",
+            "Email sending failed:",
             error.message
-        );
-
-        console.error(
-            "Full Error:",
-            error
-        );
-
-        console.error(
-            "================================="
         );
 
         return false;
@@ -200,7 +259,9 @@ const sendBookingConfirmation = async (
 
     return sendEmail(
         email,
+
         "Appointment Booking Confirmation",
+
         `Your appointment with Dr. ${doctorName} has been booked successfully.
 
 Appointment time:
@@ -223,7 +284,9 @@ const sendDoctorBookingNotification = async (
 
     return sendEmail(
         email,
+
         "New Appointment Booked",
+
         `A new appointment has been booked.
 
 Patient:
@@ -247,7 +310,9 @@ const sendCancellationEmail = async (
 
     return sendEmail(
         email,
+
         "Appointment Cancelled",
+
         `Your appointment with Dr. ${doctorName} scheduled for:
 
 ${new Date(startTime).toLocaleString()}
@@ -269,7 +334,9 @@ const sendDoctorCancellationEmail = async (
 
     return sendEmail(
         email,
+
         "Appointment Cancelled",
+
         `An appointment has been cancelled.
 
 Patient:
@@ -281,11 +348,18 @@ ${new Date(startTime).toLocaleString()}`
 };
 
 
+// ==========================================
+// EXPORTS
+// ==========================================
+
 module.exports = {
     sendEmail,
+
     sendBookingConfirmation,
+
     sendDoctorBookingNotification,
+
     sendCancellationEmail,
-    sendDoctorCancellationEmail,
-    verifyEmailConnection
+
+    sendDoctorCancellationEmail
 };
