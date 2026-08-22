@@ -4,16 +4,16 @@ generator client {
 
 datasource db {
   provider = "postgresql"
-  
 }
 
 model User {
-  id           Int      @id @default(autoincrement())
-  name         String
-  email        String   @unique
-  password     String
-  role         String
-  createdAt    DateTime @default(now())
+  id             Int      @id @default(autoincrement())
+  name           String
+  email          String   @unique
+  password       String
+  role           String
+  accountStatus  String   @default("ACTIVE")
+  createdAt      DateTime @default(now())
 
   doctor       Doctor?
   appointments Appointment[]
@@ -44,17 +44,17 @@ model DoctorLeave {
 }
 
 model Appointment {
-  id           Int      @id @default(autoincrement())
-  doctorId     Int
-  patientId    Int
-  startTime    DateTime
-  endTime      DateTime
-  status       String   @default("BOOKED")
-  notes        String?
-  symptoms     String?
-  prescription String?
-  aiSummary    String?
-  postVisitSummary String?
+  id                Int      @id @default(autoincrement())
+  doctorId          Int
+  patientId         Int
+  startTime         DateTime
+  endTime           DateTime
+  status            String   @default("BOOKED")
+  notes             String?
+  symptoms          String?
+  prescription      String?
+  aiSummary         String?
+  postVisitSummary  String?
 
   doctor  Doctor @relation(fields: [doctorId], references: [id])
   patient User   @relation(fields: [patientId], references: [id])

@@ -6,112 +6,50 @@ import {
 } from "react-router-dom";
 
 import Login from "./pages/Login";
+import Register from "./pages/Register";
 import PatientDashboard from "./pages/PatientDashboard";
 import DoctorDashboard from "./pages/DoctorDashboard";
-
-
-// ==========================================
-// PROTECTED ROUTE
-// ==========================================
-
-function ProtectedRoute({ children, role }) {
-
-    const token = localStorage.getItem("token");
-    const user = JSON.parse(
-        localStorage.getItem("user") || "null"
-    );
-
-    // No login
-    if (!token || !user) {
-        return <Navigate to="/login" replace />;
-    }
-
-    // Wrong role
-    if (role && user.role !== role) {
-
-        if (user.role === "PATIENT") {
-            return (
-                <Navigate
-                    to="/patient"
-                    replace
-                />
-            );
-        }
-
-        if (user.role === "DOCTOR") {
-            return (
-                <Navigate
-                    to="/doctor"
-                    replace
-                />
-            );
-        }
-
-        return (
-            <Navigate
-                to="/login"
-                replace
-            />
-        );
-    }
-
-    return children;
-}
-
-
-// ==========================================
-// APP
-// ==========================================
+import AdminDashboard from "./pages/AdminDashboard";
 
 function App() {
-
     return (
         <BrowserRouter>
-
             <Routes>
 
-                {/* ==========================
-                    LOGIN
-                ========================== */}
-
+                {/* Authentication */}
                 <Route
                     path="/login"
                     element={<Login />}
                 />
 
+                <Route
+                    path="/register"
+                    element={<Register />}
+                />
 
-                {/* ==========================
-                    PATIENT
-                ========================== */}
 
+                {/* Patient */}
                 <Route
                     path="/patient"
-                    element={
-                        <ProtectedRoute role="PATIENT">
-                            <PatientDashboard />
-                        </ProtectedRoute>
-                    }
+                    element={<PatientDashboard />}
                 />
 
 
-                {/* ==========================
-                    DOCTOR
-                ========================== */}
-
+                {/* Doctor */}
                 <Route
                     path="/doctor"
-                    element={
-                        <ProtectedRoute role="DOCTOR">
-                            <DoctorDashboard />
-                        </ProtectedRoute>
-                    }
+                    element={<DoctorDashboard />}
                 />
 
 
-                {/* ==========================
-                    DEFAULT
-                ========================== */}
+                {/* Admin */}
+                <Route
+                    path="/admin"
+                    element={<AdminDashboard />}
+                />
 
+
+                {/* Unknown route */}
                 <Route
                     path="*"
                     element={
@@ -123,7 +61,6 @@ function App() {
                 />
 
             </Routes>
-
         </BrowserRouter>
     );
 }

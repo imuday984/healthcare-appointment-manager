@@ -1,0 +1,609 @@
+/* =========================================
+   ADMIN PAGE
+========================================= */
+
+.admin-page {
+    min-height: 100vh;
+    background: #f4f7fb;
+    color: #172033;
+}
+
+
+/* =========================================
+   HEADER
+========================================= */
+
+.admin-header {
+    min-height: 82px;
+
+    padding: 16px 5%;
+
+    background: #ffffff;
+
+    border-bottom: 1px solid #e4e7ec;
+
+    display: flex;
+    align-items: center;
+    justify-content: space-between;
+}
+
+.admin-brand {
+    display: flex;
+    align-items: center;
+    gap: 13px;
+}
+
+.admin-brand-icon {
+    width: 44px;
+    height: 44px;
+
+    border-radius: 11px;
+
+    background: linear-gradient(
+        135deg,
+        #155eef,
+        #3b82f6
+    );
+
+    color: white;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 25px;
+    font-weight: 800;
+
+    box-shadow:
+        0 5px 15px rgba(21, 94, 239, 0.2);
+}
+
+.admin-brand h1 {
+    margin: 0;
+
+    color: #155eef;
+
+    font-size: 21px;
+    font-weight: 800;
+}
+
+.admin-brand p {
+    margin: 3px 0 0;
+
+    color: #667085;
+
+    font-size: 13px;
+}
+
+.admin-logout {
+    border: none;
+
+    padding: 11px 20px;
+
+    border-radius: 9px;
+
+    background: #ef4444;
+
+    color: white;
+
+    font-size: 14px;
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+.admin-logout:hover {
+    background: #dc2626;
+}
+
+
+/* =========================================
+   CONTENT
+========================================= */
+
+.admin-content {
+    width: min(1150px, 92%);
+
+    margin: 0 auto;
+
+    padding: 45px 0 70px;
+}
+
+
+/* =========================================
+   HEADING
+========================================= */
+
+.admin-heading {
+    display: flex;
+
+    align-items: center;
+    justify-content: space-between;
+
+    gap: 25px;
+
+    margin-bottom: 30px;
+}
+
+.admin-label {
+    display: inline-block;
+
+    margin-bottom: 7px;
+
+    color: #155eef;
+
+    font-size: 12px;
+
+    font-weight: 800;
+
+    letter-spacing: 1px;
+}
+
+.admin-heading h2 {
+    margin: 0;
+
+    color: #172033;
+
+    font-size: 32px;
+
+    font-weight: 800;
+}
+
+.admin-heading p {
+    margin: 8px 0 0;
+
+    color: #667085;
+
+    font-size: 15px;
+}
+
+
+/* =========================================
+   COUNTER
+========================================= */
+
+.pending-counter {
+    min-width: 105px;
+
+    padding: 15px 20px;
+
+    border-radius: 13px;
+
+    background: #fff7e6;
+
+    border: 1px solid #fedf89;
+
+    text-align: center;
+}
+
+.pending-counter strong {
+    display: block;
+
+    color: #b54708;
+
+    font-size: 25px;
+
+    line-height: 1;
+}
+
+.pending-counter span {
+    display: block;
+
+    margin-top: 5px;
+
+    color: #b54708;
+
+    font-size: 12px;
+
+    font-weight: 700;
+}
+
+
+/* =========================================
+   ERROR
+========================================= */
+
+.admin-error {
+    padding: 14px 16px;
+
+    margin-bottom: 22px;
+
+    border-radius: 9px;
+
+    background: #fee4e2;
+
+    border: 1px solid #fecdca;
+
+    color: #b42318;
+
+    font-size: 14px;
+
+    font-weight: 600;
+}
+
+
+/* =========================================
+   DOCTOR GRID
+========================================= */
+
+.doctor-grid {
+    display: grid;
+
+    grid-template-columns:
+        repeat(auto-fit, minmax(350px, 1fr));
+
+    gap: 22px;
+}
+
+
+/* =========================================
+   DOCTOR CARD
+========================================= */
+
+.doctor-card {
+    background: #ffffff;
+
+    border: 1px solid #e4e7ec;
+
+    border-radius: 17px;
+
+    padding: 25px;
+
+    box-shadow:
+        0 7px 25px rgba(16, 24, 40, 0.06);
+
+    transition: 0.2s ease;
+}
+
+.doctor-card:hover {
+    transform: translateY(-2px);
+
+    box-shadow:
+        0 12px 30px rgba(16, 24, 40, 0.09);
+}
+
+
+/* =========================================
+   CARD HEADER
+========================================= */
+
+.doctor-card-header {
+    display: flex;
+
+    align-items: center;
+
+    gap: 13px;
+
+    padding-bottom: 20px;
+
+    border-bottom: 1px solid #eaecf0;
+}
+
+.doctor-avatar {
+    flex-shrink: 0;
+
+    width: 52px;
+    height: 52px;
+
+    border-radius: 50%;
+
+    background: #eaf2ff;
+
+    color: #155eef;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 21px;
+
+    font-weight: 800;
+}
+
+.doctor-title {
+    min-width: 0;
+
+    flex: 1;
+}
+
+.doctor-title h3 {
+    margin: 0;
+
+    color: #172033;
+
+    font-size: 18px;
+
+    font-weight: 800;
+}
+
+.doctor-title span {
+    display: block;
+
+    margin-top: 4px;
+
+    color: #667085;
+
+    font-size: 13px;
+}
+
+.pending-badge {
+    flex-shrink: 0;
+
+    padding: 6px 9px;
+
+    border-radius: 20px;
+
+    background: #fff4e5;
+
+    color: #b54708;
+
+    font-size: 10px;
+
+    font-weight: 800;
+
+    letter-spacing: 0.4px;
+}
+
+
+/* =========================================
+   DETAILS
+========================================= */
+
+.doctor-details {
+    padding: 20px 0;
+}
+
+.detail-item {
+    margin-bottom: 16px;
+}
+
+.detail-label {
+    display: block;
+
+    margin-bottom: 5px;
+
+    color: #667085;
+
+    font-size: 12px;
+}
+
+.detail-item strong {
+    color: #344054;
+
+    font-size: 14px;
+
+    font-weight: 700;
+
+    word-break: break-word;
+}
+
+.detail-row {
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 20px;
+}
+
+
+/* =========================================
+   ACTIONS
+========================================= */
+
+.doctor-actions {
+    display: grid;
+
+    grid-template-columns: 1fr 1fr;
+
+    gap: 10px;
+
+    padding-top: 5px;
+}
+
+.doctor-actions button {
+    min-height: 44px;
+
+    border-radius: 9px;
+
+    font-size: 14px;
+
+    font-weight: 700;
+
+    cursor: pointer;
+
+    transition: 0.2s ease;
+}
+
+.approve-button {
+    border: none;
+
+    background: #12b76a;
+
+    color: white;
+}
+
+.approve-button:hover {
+    background: #079455;
+
+    transform: translateY(-1px);
+}
+
+.reject-button {
+    border: 1px solid #fecdca;
+
+    background: #fff;
+
+    color: #b42318;
+}
+
+.reject-button:hover {
+    background: #fff1f0;
+
+    transform: translateY(-1px);
+}
+
+.doctor-actions button:disabled {
+    opacity: 0.6;
+
+    cursor: not-allowed;
+
+    transform: none;
+}
+
+
+/* =========================================
+   EMPTY / LOADING STATE
+========================================= */
+
+.admin-state {
+    background: #ffffff;
+
+    border: 1px solid #e4e7ec;
+
+    border-radius: 17px;
+
+    padding: 70px 25px;
+
+    text-align: center;
+
+    box-shadow:
+        0 7px 25px rgba(16, 24, 40, 0.05);
+}
+
+.admin-state h3 {
+    margin: 15px 0 8px;
+
+    color: #172033;
+
+    font-size: 20px;
+}
+
+.admin-state p {
+    margin: 0;
+
+    color: #667085;
+
+    font-size: 14px;
+}
+
+.success-icon {
+    width: 62px;
+    height: 62px;
+
+    margin: 0 auto;
+
+    border-radius: 50%;
+
+    background: #dcfae6;
+
+    color: #087443;
+
+    display: flex;
+    align-items: center;
+    justify-content: center;
+
+    font-size: 29px;
+
+    font-weight: 800;
+}
+
+
+/* =========================================
+   LOADING
+========================================= */
+
+.loading-spinner {
+    width: 35px;
+    height: 35px;
+
+    margin: 0 auto;
+
+    border: 4px solid #eaf2ff;
+
+    border-top-color: #155eef;
+
+    border-radius: 50%;
+
+    animation: spin 0.8s linear infinite;
+}
+
+@keyframes spin {
+    to {
+        transform: rotate(360deg);
+    }
+}
+
+
+/* =========================================
+   REFRESH
+========================================= */
+
+.refresh-button {
+    margin-top: 22px;
+
+    padding: 10px 20px;
+
+    border: none;
+
+    border-radius: 8px;
+
+    background: #155eef;
+
+    color: white;
+
+    font-weight: 700;
+
+    cursor: pointer;
+}
+
+.refresh-button:hover {
+    background: #004eeb;
+}
+
+
+/* =========================================
+   MOBILE
+========================================= */
+
+@media (max-width: 650px) {
+
+    .admin-header {
+        padding: 15px 4%;
+    }
+
+    .admin-brand h1 {
+        font-size: 17px;
+    }
+
+    .admin-brand p {
+        font-size: 11px;
+    }
+
+    .admin-brand-icon {
+        width: 38px;
+        height: 38px;
+    }
+
+    .admin-heading {
+        align-items: flex-start;
+
+        flex-direction: column;
+    }
+
+    .admin-heading h2 {
+        font-size: 27px;
+    }
+
+    .doctor-grid {
+        grid-template-columns: 1fr;
+    }
+
+    .detail-row {
+        grid-template-columns: 1fr;
+        gap: 0;
+    }
+
+    .doctor-card-header {
+        align-items: flex-start;
+    }
+}

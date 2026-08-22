@@ -1,7 +1,7 @@
 import { useEffect, useState } from "react";
 import { useNavigate } from "react-router-dom";
 import API from "../api";
-import "../dashboard.css";
+import "../App.css";
 
 function PatientDashboard() {
     const navigate = useNavigate();

@@ -2,103 +2,285 @@ const bcrypt = require("bcryptjs");
 const jwt = require("jsonwebtoken");
 const prisma = require("../config/prisma");
 
-const register = async (req, res) => {
-    try {
-        // Get data sent by the user
-        const { name, email, password, role } = req.body;
 
-        // Check if all fields are provided
-        if (!name || !email || !password || !role) {
+// ==========================================
+// VALIDATION HELPERS
+// ==========================================
+
+const isValidEmail = (email) => {
+    return /^[^\s@]+@[^\s@]+\.[^\s@]+$/.test(email);
+};
+
+const isStrongPassword = (password) => {
+    return (
+        password.length >= 8 &&
+        /[A-Z]/.test(password) &&
+        /[a-z]/.test(password) &&
+        /[0-9]/.test(password)
+    );
+};
+
+
+// ==========================================
+// PATIENT REGISTRATION
+// ==========================================
+
+const registerPatient = async (req, res) => {
+    try {
+        const {
+            name,
+            email,
+            password
+        } = req.body || {};
+
+        // Validate fields
+        if (!name || !email || !password) {
+            return res.status(400).json({
+                message: "Name, email and password are required"
+            });
+        }
+
+        if (!isValidEmail(email)) {
+            return res.status(400).json({
+                message: "Please provide a valid email address"
+            });
+        }
+
+        if (!isStrongPassword(password)) {
+            return res.status(400).json({
+                message:
+                    "Password must be at least 8 characters and contain uppercase, lowercase and a number"
+            });
+        }
+
+        // Check existing account
+        const existingUser = await prisma.user.findUnique({
+            where: {
+                email: email.toLowerCase().trim()
+            }
+        });
+
+        if (existingUser) {
+            return res.status(409).json({
+                message: "An account with this email already exists"
+            });
+        }
+
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 12);
+
+        // Create patient
+        const user = await prisma.user.create({
+            data: {
+                name: name.trim(),
+                email: email.toLowerCase().trim(),
+                password: hashedPassword,
+                role: "PATIENT",
+                accountStatus: "ACTIVE"
+            }
+        });
+
+        return res.status(201).json({
+            message: "Patient account created successfully",
+            user: {
+                id: user.id,
+                name: user.name,
+                email: user.email,
+                role: user.role,
+                accountStatus: user.accountStatus
+            }
+        });
+
+    } catch (error) {
+        console.error("Patient registration error:", error);
+
+        return res.status(500).json({
+            message: "Unable to create patient account"
+        });
+    }
+};
+
+
+// ==========================================
+// DOCTOR REGISTRATION
+// ==========================================
+
+const registerDoctor = async (req, res) => {
+    try {
+        const {
+            name,
+            email,
+            password,
+            specialization,
+            workStartTime,
+            workEndTime,
+            slotDuration
+        } = req.body || {};
+
+        // Validate required fields
+        if (
+            !name ||
+            !email ||
+            !password ||
+            !specialization ||
+            !workStartTime ||
+            !workEndTime ||
+            !slotDuration
+        ) {
             return res.status(400).json({
                 message: "All fields are required"
             });
         }
 
-        // Check if this email is already registered
+        if (!isValidEmail(email)) {
+            return res.status(400).json({
+                message: "Please provide a valid email address"
+            });
+        }
+
+        if (!isStrongPassword(password)) {
+            return res.status(400).json({
+                message:
+                    "Password must be at least 8 characters and contain uppercase, lowercase and a number"
+            });
+        }
+
+        const duration = Number(slotDuration);
+
+        if (!Number.isInteger(duration) || duration <= 0) {
+            return res.status(400).json({
+                message: "Slot duration must be a positive number"
+            });
+        }
+
+        // Check existing account
         const existingUser = await prisma.user.findUnique({
             where: {
-                email: email
+                email: email.toLowerCase().trim()
             }
         });
 
         if (existingUser) {
-            return res.status(400).json({
-                message: "Email already registered"
+            return res.status(409).json({
+                message: "An account with this email already exists"
             });
         }
 
-        // Convert the password into a secure hash
-        const hashedPassword = await bcrypt.hash(password, 10);
+        // Hash password
+        const hashedPassword = await bcrypt.hash(password, 12);
 
-        // Create the user in the database
+        /*
+         * Create User + Doctor atomically.
+         *
+         * Doctor starts as PENDING and must be
+         * approved by an administrator.
+         */
         const user = await prisma.user.create({
             data: {
-                name: name,
-                email: email,
+                name: name.trim(),
+                email: email.toLowerCase().trim(),
                 password: hashedPassword,
-                role: role
+                role: "DOCTOR",
+                accountStatus: "PENDING",
+
+                doctor: {
+                    create: {
+                        specialization: specialization.trim(),
+                        workStartTime,
+                        workEndTime,
+                        slotDuration: duration
+                    }
+                }
+            },
+
+            include: {
+                doctor: true
             }
         });
 
-        // Send response
-        res.status(201).json({
-            message: "User registered successfully",
+        return res.status(201).json({
+            message:
+                "Doctor registration submitted. Your account will be available after admin approval.",
             user: {
                 id: user.id,
                 name: user.name,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                accountStatus: user.accountStatus
             }
         });
 
     } catch (error) {
-        console.error("Registration error:", error);
+        console.error("Doctor registration error:", error);
 
-        res.status(500).json({
-            message: "Server error"
+        return res.status(500).json({
+            message: "Unable to create doctor registration"
         });
     }
 };
+
+
+// ==========================================
+// LOGIN
+// ==========================================
+
 const login = async (req, res) => {
     try {
-        // Get email and password from the request
-        const { email, password } = req.body || {};
+        const {
+            email,
+            password
+        } = req.body || {};
 
-        // Check if both fields are provided
         if (!email || !password) {
             return res.status(400).json({
                 message: "Email and password are required"
             });
         }
 
-        // Find the user using their email
         const user = await prisma.user.findUnique({
             where: {
-                email: email
+                email: email.toLowerCase().trim()
             }
         });
 
-        // If user does not exist
         if (!user) {
             return res.status(401).json({
                 message: "Invalid email or password"
             });
         }
 
-        // Compare entered password with hashed password
+        // Check password
         const passwordMatch = await bcrypt.compare(
             password,
             user.password
         );
 
-        // If password is incorrect
         if (!passwordMatch) {
             return res.status(401).json({
                 message: "Invalid email or password"
             });
         }
 
-        // Create JWT token
+        // Block pending doctors
+        if (
+            user.role === "DOCTOR" &&
+            user.accountStatus === "PENDING"
+        ) {
+            return res.status(403).json({
+                message:
+                    "Your doctor account is awaiting administrator approval"
+            });
+        }
+
+        // Block rejected accounts
+        if (user.accountStatus === "REJECTED") {
+            return res.status(403).json({
+                message:
+                    "Your account registration has been rejected"
+            });
+        }
+
+        // Create JWT
         const token = jwt.sign(
             {
                 userId: user.id,
@@ -110,27 +292,32 @@ const login = async (req, res) => {
             }
         );
 
-        // Send token to the client
-        res.status(200).json({
+        return res.status(200).json({
             message: "Login successful",
-            token: token,
+
+            token,
+
             user: {
                 id: user.id,
                 name: user.name,
                 email: user.email,
-                role: user.role
+                role: user.role,
+                accountStatus: user.accountStatus
             }
         });
 
     } catch (error) {
         console.error("Login error:", error);
 
-        res.status(500).json({
-            message: "Server error"
+        return res.status(500).json({
+            message: "Unable to login"
         });
     }
 };
 
+
 module.exports = {
-    register,login
+    registerPatient,
+    registerDoctor,
+    login
 };

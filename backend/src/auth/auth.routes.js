@@ -1,13 +1,33 @@
 const express = require("express");
 
 const {
-    register,
+    registerPatient,
+    registerDoctor,
     login
 } = require("./auth.controller");
 
 const router = express.Router();
 
-router.post("/register", register);
-router.post("/login", login);
+
+// Patient registration
+router.post(
+    "/register/patient",
+    registerPatient
+);
+
+
+// Doctor registration
+router.post(
+    "/register/doctor",
+    registerDoctor
+);
+
+
+// Login
+router.post(
+    "/login",
+    login
+);
+
 
 module.exports = router;

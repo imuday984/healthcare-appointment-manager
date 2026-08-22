@@ -7,6 +7,7 @@ const authTestRoutes = require("./auth/auth.test.routes");
 const doctorRoutes = require("./doctor/doctor.routes");
 const appointmentRoutes = require("./appointment/appointment.routes");
 const { startReminderService } = require("./services/reminder.service");
+const adminRoutes = require("./admin/admin.routes");
 
 
 const app = express();
@@ -23,6 +24,7 @@ app.use(
 app.use(express.json());
 app.use("/api/auth", authTestRoutes);
 app.use("/api/doctors", doctorRoutes);
+app.use("/api/admin", adminRoutes);
 
 app.use("/api/auth", authRoutes);
 app.use("/api/appointments", appointmentRoutes);
