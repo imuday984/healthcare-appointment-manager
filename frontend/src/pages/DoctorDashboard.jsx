@@ -96,9 +96,7 @@ function DoctorDashboard() {
         try {
             setMessage("Generating AI summary...");
 
-            await API.post(
-                `/appointments/${appointmentId}/ai-post-visit-summary`
-            );
+            await API.post(`/appointments/${appointment.id}/post-visit-summary`);
 
             setMessage(
                 "AI post-visit summary generated successfully."
