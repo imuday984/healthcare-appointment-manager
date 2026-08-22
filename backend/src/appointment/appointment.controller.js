@@ -73,12 +73,11 @@ const bookAppointment = async (req, res) => {
 
         if (leave) {
             return res.status(409).json({
-                message:
-                    "Doctor is on leave on this date"
+                message: "Doctor is on leave on this date"
             });
         }
 
-        // Check existing booking
+        // Check if slot is already booked
         const existingAppointment =
             await prisma.appointment.findUnique({
                 where: {
@@ -95,7 +94,10 @@ const bookAppointment = async (req, res) => {
             });
         }
 
-        // Create appointment
+        // ==========================================
+        // CREATE APPOINTMENT
+        // ==========================================
+
         const appointment =
             await prisma.appointment.create({
                 data: {
@@ -109,7 +111,7 @@ const bookAppointment = async (req, res) => {
             });
 
         // ==========================================
-        // GET PATIENT DETAILS
+        // GET PATIENT
         // ==========================================
 
         const patient = await prisma.user.findUnique({
@@ -133,18 +135,38 @@ const bookAppointment = async (req, res) => {
             });
 
         // ==========================================
-        // SEND BOOKING EMAILS
+        // CREATE CALENDAR LINK
+        // ==========================================
+
+        let calendarLink = null;
+
+        if (doctorDetails) {
+            calendarLink = createCalendarLink({
+                doctorName: doctorDetails.user.name,
+                startTime: appointment.startTime,
+                endTime: appointment.endTime
+            });
+        }
+
+        // ==========================================
+        // SEND EMAILS IN BACKGROUND
+        // ==========================================
+        //
+        // IMPORTANT:
+        // Do NOT await these email operations.
+        //
+        // Appointment booking should NEVER depend
+        // on an external email server.
+        //
+        // Even if Brevo is down or slow, the
+        // appointment response will be returned
+        // immediately.
         // ==========================================
 
         if (patient && doctorDetails) {
 
-            console.log(
-                "================================="
-            );
-
-            console.log(
-                "STARTING EMAIL NOTIFICATIONS"
-            );
+            console.log("=================================");
+            console.log("STARTING BACKGROUND EMAIL NOTIFICATIONS");
 
             console.log(
                 "Patient email:",
@@ -176,7 +198,6 @@ const bookAppointment = async (req, res) => {
                 process.env.EMAIL_FROM || "NOT SET"
             );
 
-            // Never print EMAIL_PASSWORD
             console.log(
                 "EMAIL_PASSWORD:",
                 process.env.EMAIL_PASSWORD
@@ -184,110 +205,95 @@ const bookAppointment = async (req, res) => {
                     : "NOT SET"
             );
 
-            console.log(
-                "================================="
-            );
+            console.log("=================================");
 
+            // Run email operations in background.
+            // The API response does not wait for them.
 
-            // ------------------------------------------
-            // Patient email
-            // ------------------------------------------
+            Promise.allSettled([
 
-            try {
+                // Patient booking confirmation
+                sendBookingConfirmation(
+                    patient.email,
+                    doctorDetails.user.name,
+                    appointment.startTime
+                ),
 
-                const patientEmailResult =
-                    await sendBookingConfirmation(
-                        patient.email,
-                        doctorDetails.user.name,
-                        appointment.startTime
+                // Doctor booking notification
+                sendDoctorBookingNotification(
+                    doctorDetails.user.email,
+                    patient.name,
+                    appointment.startTime
+                )
+
+            ])
+                .then((results) => {
+
+                    console.log(
+                        "================================="
                     );
 
-                console.log(
-                    "Patient email result:",
-                    patientEmailResult
-                );
-
-            } catch (emailError) {
-
-                console.error(
-                    "Patient email exception:",
-                    emailError
-                );
-            }
-
-
-            // ------------------------------------------
-            // Doctor email
-            // ------------------------------------------
-
-            try {
-
-                const doctorEmailResult =
-                    await sendDoctorBookingNotification(
-                        doctorDetails.user.email,
-                        patient.name,
-                        appointment.startTime
+                    console.log(
+                        "BACKGROUND EMAIL PROCESSING FINISHED"
                     );
 
-                console.log(
-                    "Doctor email result:",
-                    doctorEmailResult
-                );
+                    // Patient email
+                    if (
+                        results[0].status ===
+                        "fulfilled"
+                    ) {
+                        console.log(
+                            "Patient email result:",
+                            results[0].value
+                        );
+                    } else {
+                        console.error(
+                            "Patient email failed:",
+                            results[0].reason
+                        );
+                    }
 
-            } catch (emailError) {
+                    // Doctor email
+                    if (
+                        results[1].status ===
+                        "fulfilled"
+                    ) {
+                        console.log(
+                            "Doctor email result:",
+                            results[1].value
+                        );
+                    } else {
+                        console.error(
+                            "Doctor email failed:",
+                            results[1].reason
+                        );
+                    }
 
-                console.error(
-                    "Doctor email exception:",
-                    emailError
-                );
-            }
+                    console.log(
+                        "================================="
+                    );
 
+                })
+                .catch((error) => {
 
-            console.log(
-                "================================="
-            );
+                    console.error(
+                        "Background email processing error:",
+                        error
+                    );
 
-            console.log(
-                "EMAIL NOTIFICATIONS FINISHED"
-            );
-
-            console.log(
-                "================================="
-            );
-        } else {
-
-            console.warn(
-                "Email notifications skipped because patient or doctor details were not found."
-            );
-
-            console.warn(
-                "Patient exists:",
-                Boolean(patient)
-            );
-
-            console.warn(
-                "Doctor exists:",
-                Boolean(doctorDetails)
-            );
+                });
         }
 
         // ==========================================
-        // CREATE CALENDAR LINK
-        // ==========================================
-
-        const calendarLink = createCalendarLink({
-            doctorName: doctorDetails.user.name,
-            startTime: appointment.startTime,
-            endTime: appointment.endTime
-        });
-
-        // ==========================================
-        // RESPONSE
+        // RETURN RESPONSE IMMEDIATELY
         // ==========================================
 
         return res.status(201).json({
-            message: "Appointment booked successfully",
+            message:
+                "Appointment booked successfully",
+
             appointment,
+
             calendarLink
         });
 
@@ -352,7 +358,7 @@ const getMyAppointments = async (req, res) => {
     } catch (error) {
 
         console.error(
-            "Get patient history error:",
+            "Get patient appointments error:",
             error
         );
 
@@ -379,7 +385,8 @@ const getDoctorAppointments = async (req, res) => {
 
         if (!doctor) {
             return res.status(404).json({
-                message: "Doctor profile not found"
+                message:
+                    "Doctor profile not found"
             });
         }
 
@@ -441,11 +448,13 @@ const cancelAppointment = async (req, res) => {
 
         if (!appointment) {
             return res.status(404).json({
-                message: "Appointment not found"
+                message:
+                    "Appointment not found"
             });
         }
 
-        // Only patient who booked it can cancel
+        // Only the patient who booked it
+        // can cancel it.
         if (
             appointment.patientId !==
             req.user.userId
@@ -456,7 +465,6 @@ const cancelAppointment = async (req, res) => {
             });
         }
 
-        // Prevent cancelling twice
         if (
             appointment.status ===
             "CANCELLED"
@@ -486,7 +494,7 @@ const cancelAppointment = async (req, res) => {
                 }
             });
 
-        // Update appointment
+        // Update appointment first
         const updatedAppointment =
             await prisma.appointment.update({
                 where: {
@@ -497,26 +505,54 @@ const cancelAppointment = async (req, res) => {
                 }
             });
 
-        // Send cancellation emails
+        // ==========================================
+        // SEND CANCELLATION EMAILS IN BACKGROUND
+        // ==========================================
+
         if (patient && doctor) {
 
-            await sendCancellationEmail(
-                patient.email,
-                doctor.user.name,
-                appointment.startTime
-            );
+            Promise.allSettled([
 
-            await sendDoctorCancellationEmail(
-                doctor.user.email,
-                patient.name,
-                appointment.startTime
-            );
+                sendCancellationEmail(
+                    patient.email,
+                    doctor.user.name,
+                    appointment.startTime
+                ),
+
+                sendDoctorCancellationEmail(
+                    doctor.user.email,
+                    patient.name,
+                    appointment.startTime
+                )
+
+            ])
+                .then((results) => {
+
+                    console.log(
+                        "Cancellation email processing:",
+                        results.map(
+                            (result) =>
+                                result.status
+                        )
+                    );
+
+                })
+                .catch((error) => {
+
+                    console.error(
+                        "Cancellation email error:",
+                        error
+                    );
+
+                });
         }
 
         return res.status(200).json({
             message:
                 "Appointment cancelled successfully",
-            appointment: updatedAppointment
+
+            appointment:
+                updatedAppointment
         });
 
     } catch (error) {
@@ -549,7 +585,7 @@ const addConsultationNotes = async (
         const { notes } =
             req.body || {};
 
-        if (!notes) {
+        if (!notes || !notes.trim()) {
             return res.status(400).json({
                 message:
                     "Notes are required"
@@ -593,14 +629,16 @@ const addConsultationNotes = async (
                     id: appointmentId
                 },
                 data: {
-                    notes
+                    notes: notes.trim()
                 }
             });
 
         return res.status(200).json({
             message:
                 "Consultation notes added successfully",
-            appointment: updatedAppointment
+
+            appointment:
+                updatedAppointment
         });
 
     } catch (error) {
@@ -633,7 +671,10 @@ const addPrescription = async (
         const { prescription } =
             req.body || {};
 
-        if (!prescription) {
+        if (
+            !prescription ||
+            !prescription.trim()
+        ) {
             return res.status(400).json({
                 message:
                     "Prescription is required"
@@ -677,14 +718,17 @@ const addPrescription = async (
                     id: appointmentId
                 },
                 data: {
-                    prescription
+                    prescription:
+                        prescription.trim()
                 }
             });
 
         return res.status(200).json({
             message:
                 "Prescription added successfully",
-            appointment: updatedAppointment
+
+            appointment:
+                updatedAppointment
         });
 
     } catch (error) {
@@ -770,6 +814,7 @@ const generateAISummary = async (
         return res.status(200).json({
             message:
                 "AI summary generated successfully",
+
             summary:
                 updatedAppointment.aiSummary
         });
@@ -866,6 +911,7 @@ const generateAIPostVisitSummary = async (
         return res.status(200).json({
             message:
                 "Post-visit AI summary generated successfully",
+
             summary:
                 updatedAppointment.postVisitSummary
         });
