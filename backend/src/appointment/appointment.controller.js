@@ -20,6 +20,7 @@ const {
 // ==========================================
 // BOOK APPOINTMENT
 // ==========================================
+
 const bookAppointment = async (req, res) => {
     try {
         const {
@@ -29,12 +30,15 @@ const bookAppointment = async (req, res) => {
             symptoms
         } = req.body || {};
 
+        // Validate input
         if (!doctorId || !startTime || !endTime) {
             return res.status(400).json({
-                message: "Doctor ID, start time and end time are required"
+                message:
+                    "Doctor ID, start time and end time are required"
             });
         }
 
+        // Find doctor
         const doctor = await prisma.doctor.findUnique({
             where: {
                 id: Number(doctorId)
@@ -69,7 +73,8 @@ const bookAppointment = async (req, res) => {
 
         if (leave) {
             return res.status(409).json({
-                message: "Doctor is on leave on this date"
+                message:
+                    "Doctor is on leave on this date"
             });
         }
 
@@ -91,71 +96,217 @@ const bookAppointment = async (req, res) => {
         }
 
         // Create appointment
-        const appointment = await prisma.appointment.create({
-            data: {
-                doctorId: Number(doctorId),
-                patientId: req.user.userId,
-                startTime: start,
-                endTime: end,
-                status: "BOOKED",
-                symptoms: symptoms || null
-            }
-        });
+        const appointment =
+            await prisma.appointment.create({
+                data: {
+                    doctorId: Number(doctorId),
+                    patientId: req.user.userId,
+                    startTime: start,
+                    endTime: end,
+                    status: "BOOKED",
+                    symptoms: symptoms || null
+                }
+            });
 
-        // Get patient details
+        // ==========================================
+        // GET PATIENT DETAILS
+        // ==========================================
+
         const patient = await prisma.user.findUnique({
             where: {
                 id: req.user.userId
             }
         });
 
-        // Get doctor details
-        const doctorDetails = await prisma.doctor.findUnique({
-            where: {
-                id: Number(doctorId)
-            },
-            include: {
-                user: true
-            }
-        });
+        // ==========================================
+        // GET DOCTOR DETAILS
+        // ==========================================
 
-        // Send booking emails
+        const doctorDetails =
+            await prisma.doctor.findUnique({
+                where: {
+                    id: Number(doctorId)
+                },
+                include: {
+                    user: true
+                }
+            });
+
+        // ==========================================
+        // SEND BOOKING EMAILS
+        // ==========================================
+
         if (patient && doctorDetails) {
-            await sendBookingConfirmation(
-                patient.email,
-                doctorDetails.user.name,
-                appointment.startTime
+
+            console.log(
+                "================================="
             );
 
-            await sendDoctorBookingNotification(
-                doctorDetails.user.email,
-                patient.name,
-                appointment.startTime
+            console.log(
+                "STARTING EMAIL NOTIFICATIONS"
+            );
+
+            console.log(
+                "Patient email:",
+                patient.email
+            );
+
+            console.log(
+                "Doctor email:",
+                doctorDetails.user.email
+            );
+
+            console.log(
+                "EMAIL_HOST:",
+                process.env.EMAIL_HOST || "NOT SET"
+            );
+
+            console.log(
+                "EMAIL_PORT:",
+                process.env.EMAIL_PORT || "NOT SET"
+            );
+
+            console.log(
+                "EMAIL_USER:",
+                process.env.EMAIL_USER || "NOT SET"
+            );
+
+            console.log(
+                "EMAIL_FROM:",
+                process.env.EMAIL_FROM || "NOT SET"
+            );
+
+            // Never print EMAIL_PASSWORD
+            console.log(
+                "EMAIL_PASSWORD:",
+                process.env.EMAIL_PASSWORD
+                    ? "SET"
+                    : "NOT SET"
+            );
+
+            console.log(
+                "================================="
+            );
+
+
+            // ------------------------------------------
+            // Patient email
+            // ------------------------------------------
+
+            try {
+
+                const patientEmailResult =
+                    await sendBookingConfirmation(
+                        patient.email,
+                        doctorDetails.user.name,
+                        appointment.startTime
+                    );
+
+                console.log(
+                    "Patient email result:",
+                    patientEmailResult
+                );
+
+            } catch (emailError) {
+
+                console.error(
+                    "Patient email exception:",
+                    emailError
+                );
+            }
+
+
+            // ------------------------------------------
+            // Doctor email
+            // ------------------------------------------
+
+            try {
+
+                const doctorEmailResult =
+                    await sendDoctorBookingNotification(
+                        doctorDetails.user.email,
+                        patient.name,
+                        appointment.startTime
+                    );
+
+                console.log(
+                    "Doctor email result:",
+                    doctorEmailResult
+                );
+
+            } catch (emailError) {
+
+                console.error(
+                    "Doctor email exception:",
+                    emailError
+                );
+            }
+
+
+            console.log(
+                "================================="
+            );
+
+            console.log(
+                "EMAIL NOTIFICATIONS FINISHED"
+            );
+
+            console.log(
+                "================================="
+            );
+        } else {
+
+            console.warn(
+                "Email notifications skipped because patient or doctor details were not found."
+            );
+
+            console.warn(
+                "Patient exists:",
+                Boolean(patient)
+            );
+
+            console.warn(
+                "Doctor exists:",
+                Boolean(doctorDetails)
             );
         }
 
+        // ==========================================
+        // CREATE CALENDAR LINK
+        // ==========================================
+
         const calendarLink = createCalendarLink({
-        doctorName: doctorDetails.user.name,
-        startTime: appointment.startTime,
-        endTime: appointment.endTime
+            doctorName: doctorDetails.user.name,
+            startTime: appointment.startTime,
+            endTime: appointment.endTime
         });
 
-        res.status(201).json({
+        // ==========================================
+        // RESPONSE
+        // ==========================================
+
+        return res.status(201).json({
             message: "Appointment booked successfully",
             appointment,
             calendarLink
         });
 
     } catch (error) {
-        console.error("Booking error:", error);
 
+        console.error(
+            "Booking error:",
+            error
+        );
+
+        // Prisma duplicate booking
         if (error.code === "P2002") {
             return res.status(409).json({
-                message: "This slot is already booked"
+                message:
+                    "This slot is already booked"
             });
         }
 
-        res.status(500).json({
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -165,38 +316,47 @@ const bookAppointment = async (req, res) => {
 // ==========================================
 // GET PATIENT APPOINTMENTS
 // ==========================================
+
 const getMyAppointments = async (req, res) => {
     try {
-        const appointments = await prisma.appointment.findMany({
-            where: {
-                patientId: req.user.userId
-            },
-            include: {
-                doctor: {
-                    include: {
-                        user: {
-                            select: {
-                                name: true,
-                                email: true
+
+        const appointments =
+            await prisma.appointment.findMany({
+                where: {
+                    patientId: req.user.userId
+                },
+
+                include: {
+                    doctor: {
+                        include: {
+                            user: {
+                                select: {
+                                    name: true,
+                                    email: true
+                                }
                             }
                         }
                     }
-                }
-            },
-            orderBy: {
-                startTime: "desc"
-            }
-        });
+                },
 
-        res.status(200).json({
+                orderBy: {
+                    startTime: "desc"
+                }
+            });
+
+        return res.status(200).json({
             count: appointments.length,
             appointments
         });
 
     } catch (error) {
-        console.error("Get patient history error:", error);
 
-        res.status(500).json({
+        console.error(
+            "Get patient history error:",
+            error
+        );
+
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -206,13 +366,16 @@ const getMyAppointments = async (req, res) => {
 // ==========================================
 // GET DOCTOR APPOINTMENTS
 // ==========================================
+
 const getDoctorAppointments = async (req, res) => {
     try {
-        const doctor = await prisma.doctor.findUnique({
-            where: {
-                userId: req.user.userId
-            }
-        });
+
+        const doctor =
+            await prisma.doctor.findUnique({
+                where: {
+                    userId: req.user.userId
+                }
+            });
 
         if (!doctor) {
             return res.status(404).json({
@@ -220,32 +383,39 @@ const getDoctorAppointments = async (req, res) => {
             });
         }
 
-        const appointments = await prisma.appointment.findMany({
-            where: {
-                doctorId: doctor.id
-            },
-            include: {
-                patient: {
-                    select: {
-                        id: true,
-                        name: true,
-                        email: true
-                    }
-                }
-            },
-            orderBy: {
-                startTime: "asc"
-            }
-        });
+        const appointments =
+            await prisma.appointment.findMany({
+                where: {
+                    doctorId: doctor.id
+                },
 
-        res.status(200).json({
+                include: {
+                    patient: {
+                        select: {
+                            id: true,
+                            name: true,
+                            email: true
+                        }
+                    }
+                },
+
+                orderBy: {
+                    startTime: "asc"
+                }
+            });
+
+        return res.status(200).json({
             appointments
         });
 
     } catch (error) {
-        console.error("Get doctor appointments error:", error);
 
-        res.status(500).json({
+        console.error(
+            "Get doctor appointments error:",
+            error
+        );
+
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -255,16 +425,19 @@ const getDoctorAppointments = async (req, res) => {
 // ==========================================
 // CANCEL APPOINTMENT
 // ==========================================
+
 const cancelAppointment = async (req, res) => {
     try {
-        const appointmentId = Number(req.params.id);
 
-        // Find appointment
-        const appointment = await prisma.appointment.findUnique({
-            where: {
-                id: appointmentId
-            }
-        });
+        const appointmentId =
+            Number(req.params.id);
+
+        const appointment =
+            await prisma.appointment.findUnique({
+                where: {
+                    id: appointmentId
+                }
+            });
 
         if (!appointment) {
             return res.status(404).json({
@@ -272,36 +445,46 @@ const cancelAppointment = async (req, res) => {
             });
         }
 
-        // Only appointment owner can cancel
-        if (appointment.patientId !== req.user.userId) {
+        // Only patient who booked it can cancel
+        if (
+            appointment.patientId !==
+            req.user.userId
+        ) {
             return res.status(403).json({
-                message: "You cannot cancel this appointment"
+                message:
+                    "You cannot cancel this appointment"
             });
         }
 
         // Prevent cancelling twice
-        if (appointment.status === "CANCELLED") {
+        if (
+            appointment.status ===
+            "CANCELLED"
+        ) {
             return res.status(400).json({
-                message: "Appointment is already cancelled"
+                message:
+                    "Appointment is already cancelled"
             });
         }
 
-        // Get patient details
-        const patient = await prisma.user.findUnique({
-            where: {
-                id: appointment.patientId
-            }
-        });
+        // Get patient
+        const patient =
+            await prisma.user.findUnique({
+                where: {
+                    id: appointment.patientId
+                }
+            });
 
-        // Get doctor details
-        const doctor = await prisma.doctor.findUnique({
-            where: {
-                id: appointment.doctorId
-            },
-            include: {
-                user: true
-            }
-        });
+        // Get doctor
+        const doctor =
+            await prisma.doctor.findUnique({
+                where: {
+                    id: appointment.doctorId
+                },
+                include: {
+                    user: true
+                }
+            });
 
         // Update appointment
         const updatedAppointment =
@@ -317,14 +500,12 @@ const cancelAppointment = async (req, res) => {
         // Send cancellation emails
         if (patient && doctor) {
 
-            // Patient notification
             await sendCancellationEmail(
                 patient.email,
                 doctor.user.name,
                 appointment.startTime
             );
 
-            // Doctor notification
             await sendDoctorCancellationEmail(
                 doctor.user.email,
                 patient.name,
@@ -332,15 +513,20 @@ const cancelAppointment = async (req, res) => {
             );
         }
 
-        res.status(200).json({
-            message: "Appointment cancelled successfully",
+        return res.status(200).json({
+            message:
+                "Appointment cancelled successfully",
             appointment: updatedAppointment
         });
 
     } catch (error) {
-        console.error("Cancel appointment error:", error);
 
-        res.status(500).json({
+        console.error(
+            "Cancel appointment error:",
+            error
+        );
+
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -350,38 +536,54 @@ const cancelAppointment = async (req, res) => {
 // ==========================================
 // ADD CONSULTATION NOTES
 // ==========================================
-const addConsultationNotes = async (req, res) => {
+
+const addConsultationNotes = async (
+    req,
+    res
+) => {
     try {
-        const appointmentId = Number(req.params.id);
-        const { notes } = req.body || {};
+
+        const appointmentId =
+            Number(req.params.id);
+
+        const { notes } =
+            req.body || {};
 
         if (!notes) {
             return res.status(400).json({
-                message: "Notes are required"
+                message:
+                    "Notes are required"
             });
         }
 
-        const appointment = await prisma.appointment.findUnique({
-            where: {
-                id: appointmentId
-            }
-        });
+        const appointment =
+            await prisma.appointment.findUnique({
+                where: {
+                    id: appointmentId
+                }
+            });
 
         if (!appointment) {
             return res.status(404).json({
-                message: "Appointment not found"
+                message:
+                    "Appointment not found"
             });
         }
 
-        const doctor = await prisma.doctor.findUnique({
-            where: {
-                userId: req.user.userId
-            }
-        });
+        const doctor =
+            await prisma.doctor.findUnique({
+                where: {
+                    userId: req.user.userId
+                }
+            });
 
-        if (!doctor || doctor.id !== appointment.doctorId) {
+        if (
+            !doctor ||
+            doctor.id !== appointment.doctorId
+        ) {
             return res.status(403).json({
-                message: "You cannot modify this appointment"
+                message:
+                    "You cannot modify this appointment"
             });
         }
 
@@ -395,15 +597,20 @@ const addConsultationNotes = async (req, res) => {
                 }
             });
 
-        res.status(200).json({
-            message: "Consultation notes added successfully",
+        return res.status(200).json({
+            message:
+                "Consultation notes added successfully",
             appointment: updatedAppointment
         });
 
     } catch (error) {
-        console.error("Add notes error:", error);
 
-        res.status(500).json({
+        console.error(
+            "Add notes error:",
+            error
+        );
+
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -413,38 +620,54 @@ const addConsultationNotes = async (req, res) => {
 // ==========================================
 // ADD PRESCRIPTION
 // ==========================================
-const addPrescription = async (req, res) => {
+
+const addPrescription = async (
+    req,
+    res
+) => {
     try {
-        const appointmentId = Number(req.params.id);
-        const { prescription } = req.body || {};
+
+        const appointmentId =
+            Number(req.params.id);
+
+        const { prescription } =
+            req.body || {};
 
         if (!prescription) {
             return res.status(400).json({
-                message: "Prescription is required"
+                message:
+                    "Prescription is required"
             });
         }
 
-        const appointment = await prisma.appointment.findUnique({
-            where: {
-                id: appointmentId
-            }
-        });
+        const appointment =
+            await prisma.appointment.findUnique({
+                where: {
+                    id: appointmentId
+                }
+            });
 
         if (!appointment) {
             return res.status(404).json({
-                message: "Appointment not found"
+                message:
+                    "Appointment not found"
             });
         }
 
-        const doctor = await prisma.doctor.findUnique({
-            where: {
-                userId: req.user.userId
-            }
-        });
+        const doctor =
+            await prisma.doctor.findUnique({
+                where: {
+                    userId: req.user.userId
+                }
+            });
 
-        if (!doctor || doctor.id !== appointment.doctorId) {
+        if (
+            !doctor ||
+            doctor.id !== appointment.doctorId
+        ) {
             return res.status(403).json({
-                message: "You cannot modify this appointment"
+                message:
+                    "You cannot modify this appointment"
             });
         }
 
@@ -458,15 +681,20 @@ const addPrescription = async (req, res) => {
                 }
             });
 
-        res.status(200).json({
-            message: "Prescription added successfully",
+        return res.status(200).json({
+            message:
+                "Prescription added successfully",
             appointment: updatedAppointment
         });
 
     } catch (error) {
-        console.error("Prescription error:", error);
 
-        res.status(500).json({
+        console.error(
+            "Prescription error:",
+            error
+        );
+
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -476,41 +704,56 @@ const addPrescription = async (req, res) => {
 // ==========================================
 // GENERATE AI PRE-VISIT SUMMARY
 // ==========================================
-const generateAISummary = async (req, res) => {
-    try {
-        const appointmentId = Number(req.params.id);
 
-        const appointment = await prisma.appointment.findUnique({
-            where: {
-                id: appointmentId
-            }
-        });
+const generateAISummary = async (
+    req,
+    res
+) => {
+    try {
+
+        const appointmentId =
+            Number(req.params.id);
+
+        const appointment =
+            await prisma.appointment.findUnique({
+                where: {
+                    id: appointmentId
+                }
+            });
 
         if (!appointment) {
             return res.status(404).json({
-                message: "Appointment not found"
+                message:
+                    "Appointment not found"
             });
         }
 
-        if (appointment.patientId !== req.user.userId) {
+        if (
+            appointment.patientId !==
+            req.user.userId
+        ) {
             return res.status(403).json({
-                message: "You cannot access this appointment"
+                message:
+                    "You cannot access this appointment"
             });
         }
 
         if (!appointment.symptoms) {
             return res.status(400).json({
-                message: "No symptoms provided"
+                message:
+                    "No symptoms provided"
             });
         }
 
-        const summary = await generateSymptomSummary(
-            appointment.symptoms
-        );
+        const summary =
+            await generateSymptomSummary(
+                appointment.symptoms
+            );
 
         if (!summary) {
             return res.status(503).json({
-                message: "AI service temporarily unavailable"
+                message:
+                    "AI service temporarily unavailable"
             });
         }
 
@@ -524,15 +767,21 @@ const generateAISummary = async (req, res) => {
                 }
             });
 
-        res.status(200).json({
-            message: "AI summary generated successfully",
-            summary: updatedAppointment.aiSummary
+        return res.status(200).json({
+            message:
+                "AI summary generated successfully",
+            summary:
+                updatedAppointment.aiSummary
         });
 
     } catch (error) {
-        console.error("AI summary controller error:", error);
 
-        res.status(500).json({
+        console.error(
+            "AI summary controller error:",
+            error
+        );
+
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -542,48 +791,64 @@ const generateAISummary = async (req, res) => {
 // ==========================================
 // GENERATE AI POST-VISIT SUMMARY
 // ==========================================
-const generateAIPostVisitSummary = async (req, res) => {
-    try {
-        const appointmentId = Number(req.params.id);
 
-        const appointment = await prisma.appointment.findUnique({
-            where: {
-                id: appointmentId
-            }
-        });
+const generateAIPostVisitSummary = async (
+    req,
+    res
+) => {
+    try {
+
+        const appointmentId =
+            Number(req.params.id);
+
+        const appointment =
+            await prisma.appointment.findUnique({
+                where: {
+                    id: appointmentId
+                }
+            });
 
         if (!appointment) {
             return res.status(404).json({
-                message: "Appointment not found"
+                message:
+                    "Appointment not found"
             });
         }
 
-        const doctor = await prisma.doctor.findUnique({
-            where: {
-                userId: req.user.userId
-            }
-        });
+        const doctor =
+            await prisma.doctor.findUnique({
+                where: {
+                    userId: req.user.userId
+                }
+            });
 
-        if (!doctor || doctor.id !== appointment.doctorId) {
+        if (
+            !doctor ||
+            doctor.id !== appointment.doctorId
+        ) {
             return res.status(403).json({
-                message: "You cannot modify this appointment"
+                message:
+                    "You cannot modify this appointment"
             });
         }
 
         if (!appointment.notes) {
             return res.status(400).json({
-                message: "Consultation notes are required"
+                message:
+                    "Consultation notes are required"
             });
         }
 
-        const summary = await generatePostVisitSummary(
-            appointment.notes,
-            appointment.prescription
-        );
+        const summary =
+            await generatePostVisitSummary(
+                appointment.notes,
+                appointment.prescription
+            );
 
         if (!summary) {
             return res.status(503).json({
-                message: "AI service temporarily unavailable"
+                message:
+                    "AI service temporarily unavailable"
             });
         }
 
@@ -598,18 +863,21 @@ const generateAIPostVisitSummary = async (req, res) => {
                 }
             });
 
-        res.status(200).json({
-            message: "Post-visit AI summary generated successfully",
-            summary: updatedAppointment.postVisitSummary
+        return res.status(200).json({
+            message:
+                "Post-visit AI summary generated successfully",
+            summary:
+                updatedAppointment.postVisitSummary
         });
 
     } catch (error) {
+
         console.error(
             "Post-visit AI summary error:",
             error
         );
 
-        res.status(500).json({
+        return res.status(500).json({
             message: "Server error"
         });
     }
@@ -619,6 +887,7 @@ const generateAIPostVisitSummary = async (req, res) => {
 // ==========================================
 // EXPORTS
 // ==========================================
+
 module.exports = {
     bookAppointment,
     getMyAppointments,

@@ -1,34 +1,67 @@
 const nodemailer = require("nodemailer");
 
+const EMAIL_HOST = process.env.EMAIL_HOST;
+const EMAIL_PORT = Number(process.env.EMAIL_PORT || 587);
+const EMAIL_USER = process.env.EMAIL_USER;
+const EMAIL_PASSWORD = process.env.EMAIL_PASSWORD;
+const EMAIL_FROM = process.env.EMAIL_FROM || EMAIL_USER;
+
+// Validate email configuration
+if (!EMAIL_HOST || !EMAIL_USER || !EMAIL_PASSWORD) {
+    console.warn(
+        "⚠️ Email configuration is incomplete. " +
+        "EMAIL_HOST, EMAIL_USER and EMAIL_PASSWORD are required."
+    );
+}
+
 const transporter = nodemailer.createTransport({
-    host: process.env.EMAIL_HOST,
-    port: Number(process.env.EMAIL_PORT),
-    secure: false,
+    host: EMAIL_HOST,
+    port: EMAIL_PORT,
+    secure: EMAIL_PORT === 465,
+
     auth: {
-        user: process.env.EMAIL_USER,
-        pass: process.env.EMAIL_PASSWORD
+        user: EMAIL_USER,
+        pass: EMAIL_PASSWORD
+    },
+
+    tls: {
+        minVersion: "TLSv1.2"
     }
 });
+
+
+// ==========================================
+// GENERIC EMAIL
+// ==========================================
 
 const sendEmail = async (to, subject, text) => {
     try {
         await transporter.sendMail({
-            from: process.env.EMAIL_FROM,
+            from: EMAIL_FROM,
             to,
             subject,
             text
         });
 
         console.log(`Email sent successfully to ${to}`);
+
         return true;
+
     } catch (error) {
-        console.error("Email sending failed:", error.message);
+        console.error(
+            "Email sending failed:",
+            error.message
+        );
+
         return false;
     }
 };
 
 
-// PATIENT — booking confirmation
+// ==========================================
+// PATIENT — BOOKING CONFIRMATION
+// ==========================================
+
 const sendBookingConfirmation = async (
     email,
     doctorName,
@@ -47,7 +80,10 @@ Thank you.`
 };
 
 
-// DOCTOR — new appointment
+// ==========================================
+// DOCTOR — NEW APPOINTMENT
+// ==========================================
+
 const sendDoctorBookingNotification = async (
     email,
     patientName,
@@ -67,7 +103,10 @@ ${new Date(startTime).toLocaleString()}`
 };
 
 
-// PATIENT — cancellation
+// ==========================================
+// PATIENT — CANCELLATION
+// ==========================================
+
 const sendCancellationEmail = async (
     email,
     doctorName,
@@ -85,7 +124,10 @@ has been cancelled.`
 };
 
 
-// DOCTOR — cancellation
+// ==========================================
+// DOCTOR — CANCELLATION
+// ==========================================
+
 const sendDoctorCancellationEmail = async (
     email,
     patientName,
