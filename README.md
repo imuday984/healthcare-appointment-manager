@@ -20,24 +20,24 @@ https://healthcare-appointment-manager-api-nalf.onrender.com/
 
 ## Roles
 
-  -----------------------------------------------------------------------
-  Role                                Capabilities
-  ----------------------------------- -----------------------------------
-  Patient                             Register/login, find doctors,
-                                      book/cancel appointments, enter
-                                      symptoms, generate pre-visit AI
-                                      summaries, view prescriptions and
-                                      post-visit summaries
+  ---------------------------------------------------------------------
+  Role                               Capabilities
+  ---------------------------------- ----------------------------------
+  Patient                            Register/login, find doctors,
+                                     book/cancel appointments, enter
+                                     symptoms, generate pre-visit AI
+                                     summaries, view prescriptions and
+                                     post-visit summaries
 
-  Doctor                              Register/login, manage
-                                      appointments, add consultation
-                                      notes, add prescriptions, generate
-                                      post-visit AI summaries
+  Doctor                             Register/login, manage
+                                     appointments, add consultation
+                                     notes, add prescriptions, generate
+                                     post-visit AI summaries
 
-  Admin                               Login, manage users/doctors,
-                                      approve doctors, monitor the
-                                      platform
-  -----------------------------------------------------------------------
+  Admin                              Login, manage users/doctors,
+                                     approve doctors, monitor the
+                                     platform
+  ---------------------------------------------------------------------
 
 ## Demo Admin Account
 
@@ -533,3 +533,480 @@ The project combines authentication, role-based authorization,
 relational database design, REST APIs, appointment scheduling, AI
 integration, transactional email, and cloud deployment into one
 production-style application.
+
+------------------------------------------------------------------------
+
+# Evaluation-Focused Documentation
+
+This section maps the implementation directly to the stated evaluation
+criteria.
+
+## 1. Problem-Solving Approach
+
+### Double-booking prevention
+
+The appointment system uses both application-level validation and a
+database-level constraint.
+
+Before booking, the backend validates the requested doctor and slot and
+checks whether an appointment already exists.
+
+The database additionally enforces uniqueness for:
+
+``` text
+doctorId + startTime
+```
+
+This protects against race conditions where two users attempt to book
+the same slot concurrently.
+
+### Doctor leave conflict
+
+Doctor leave dates are stored separately in `DoctorLeave`.
+
+The availability/booking flow checks the selected doctor and date
+against leave records before allowing a slot to be booked.
+
+``` text
+Doctor + Date
+     ↓
+Check leave
+     ↓
+Leave?
+ ┌───┴───┐
+YES      NO
+ ↓        ↓
+Reject   Generate/check slots
+```
+
+### Slot conflict / stale availability
+
+The frontend only displays availability; it is not treated as the final
+authority.
+
+When a booking request reaches the backend, the server validates the
+slot again.
+
+This prevents a stale browser page from creating an invalid appointment.
+
+### Notification reliability
+
+Production notification delivery uses the Brevo HTTPS API rather than
+direct SMTP.
+
+The email operation is separated from appointment creation so that a
+temporary email-provider failure does not undo a successful appointment.
+
+Email failures are logged and returned as a notification failure rather
+than corrupting appointment data.
+
+------------------------------------------------------------------------
+
+## 2. LLM Quality and Failure Handling
+
+### Pre-visit AI
+
+Patient-provided symptoms are sent to the Gemini service to create a
+concise pre-visit summary.
+
+``` text
+Symptoms
+   ↓
+AI service
+   ↓
+Gemini
+   ↓
+Pre-visit summary
+   ↓
+Appointment record
+```
+
+### Post-visit AI
+
+The doctor provides consultation notes and a prescription.
+
+``` text
+Consultation Notes
+        +
+Prescription
+        ↓
+AI service
+        ↓
+Gemini
+        ↓
+Post-visit summary
+        ↓
+Patient dashboard
+```
+
+The post-visit result is stored with the appointment.
+
+### Failure handling
+
+LLM failures are handled independently from the appointment lifecycle.
+
+If Gemini is unavailable:
+
+-   The backend logs the failure.
+-   The API returns an appropriate error response.
+-   Existing appointment data remains intact.
+-   The appointment is not deleted because of an AI failure.
+
+The AI is used for summarization and information organization, not
+autonomous clinical decision-making.
+
+------------------------------------------------------------------------
+
+## 3. Database Schema Design
+
+The relational schema is centered around:
+
+``` text
+User
+Doctor
+DoctorLeave
+Appointment
+```
+
+Relationships:
+
+``` text
+User 1 ───── 0..1 Doctor
+User 1 ───── * Appointment
+Doctor 1 ──── * Appointment
+Doctor 1 ──── * DoctorLeave
+```
+
+The design provides:
+
+-   Referential integrity
+-   Normalized user/doctor information
+-   Explicit leave records
+-   Patient/doctor appointment relationships
+-   Appointment status tracking
+-   AI result persistence
+-   Database-level duplicate-slot protection
+
+------------------------------------------------------------------------
+
+## 4. API and Code Structure
+
+The backend separates responsibilities into:
+
+``` text
+Routes
+  ↓
+Controllers
+  ↓
+Middleware
+  ↓
+Services
+  ↓
+Prisma / PostgreSQL
+```
+
+Important modules include:
+
+``` text
+src/auth/
+src/appointment/
+src/services/
+```
+
+Services isolate external integrations such as:
+
+``` text
+ai.service.js
+email.service.js
+calendar.service.js
+reminder.service.js
+```
+
+This keeps external API logic out of the core appointment routes.
+
+------------------------------------------------------------------------
+
+## 5. Email Integration
+
+The application supports:
+
+### Patient notifications
+
+-   Appointment booking confirmation
+-   Appointment cancellation
+
+### Doctor notifications
+
+-   New appointment notification
+-   Appointment cancellation notification
+
+Production delivery:
+
+``` text
+Express Backend
+      ↓ HTTPS
+Brevo API
+      ↓
+Recipient mailbox
+```
+
+The API key is stored in the production environment and is not
+hard-coded.
+
+------------------------------------------------------------------------
+
+## 6. Google Calendar Integration
+
+The project includes a dedicated calendar service for Google Calendar
+integration.
+
+Required production setup:
+
+1.  Create a Google Cloud project.
+2.  Enable Google Calendar API.
+3.  Configure OAuth credentials.
+4.  Configure the required redirect URI.
+5.  Store OAuth credentials securely as environment variables.
+6.  Authorize the required Google account/calendar.
+7.  Use the calendar service when creating appointment events.
+
+No Google credentials should be committed to source control.
+
+------------------------------------------------------------------------
+
+## 7. REST API Documentation
+
+### Authentication
+
+``` http
+POST /api/auth/register
+POST /api/auth/login
+```
+
+### Patient
+
+``` http
+POST  /api/appointments
+GET   /api/appointments/my
+PATCH /api/appointments/:id/cancel
+POST  /api/appointments/:id/ai-summary
+```
+
+### Doctor
+
+``` http
+GET   /api/appointments/doctor
+PATCH /api/appointments/:id/notes
+PATCH /api/appointments/:id/prescription
+POST  /api/appointments/:id/post-visit-summary
+```
+
+Protected endpoints require:
+
+``` http
+Authorization: Bearer <JWT>
+```
+
+Role-based middleware determines whether the authenticated user is
+allowed to access each operation.
+
+------------------------------------------------------------------------
+
+# System Design Write-Up
+
+The Healthcare Appointment Manager follows a client-server architecture.
+The React/Vite frontend provides separate experiences for patients,
+doctors, and administrators and communicates with the Node.js/Express
+backend through HTTPS REST APIs. JWT authentication identifies users,
+while role-based middleware restricts protected operations. Passwords
+are hashed using bcrypt before being stored.
+
+The backend uses PostgreSQL through Prisma ORM. The main entities are
+users, doctors, doctor leave records, and appointments. A doctor is
+associated with a user account, while appointments connect a patient
+user with a doctor. Doctor working hours and slot duration are used to
+generate appointment slots. Leave records prevent appointments from
+being scheduled when a doctor is unavailable.
+
+Double-booking prevention is implemented at both the application and
+database layers. The backend checks the requested slot before creating
+an appointment, and PostgreSQL enforces a unique doctor/start-time
+constraint. This is important because frontend availability can become
+stale and concurrent requests may arrive at the same time.
+
+The appointment workflow also handles cancellation and completion.
+Patients can cancel appointments, while doctors can add consultation
+notes and prescriptions. After consultation, the system can use Google
+Gemini to create a structured post-visit summary. A separate pre-visit
+AI workflow can summarize patient symptoms before consultation. AI
+errors are isolated from appointment persistence so an external LLM
+failure does not corrupt the appointment.
+
+Email notifications are implemented through the Brevo HTTPS API. The
+system sends booking and cancellation notifications to the relevant
+patient and doctor. Email processing is separated from the core booking
+operation so a notification outage does not cause a valid appointment
+transaction to fail. This design was selected after production SMTP
+connections from the Render environment experienced connection timeouts.
+
+Google Calendar functionality is isolated in a calendar service. A
+production configuration can use Google Cloud OAuth credentials to
+create calendar events from appointment information. Secrets for the
+database, JWT, Gemini, Brevo, and Google services are supplied through
+environment variables rather than source code.
+
+The frontend is deployed on Vercel and the backend on Render. PostgreSQL
+provides persistent relational storage, Gemini provides LLM
+capabilities, and Brevo provides transactional email delivery. The
+architecture separates presentation, authentication, business logic,
+database access, and external integrations, making the system modular
+and easier to maintain.
+
+------------------------------------------------------------------------
+
+# Submission Deliverables
+
+The final submission should contain:
+
+## 1. Source Code ZIP
+
+``` text
+healthcare-appointment-manager.zip
+```
+
+Recommended contents:
+
+``` text
+healthcare-appointment-manager/
+├── frontend/
+├── backend/
+└── README.md
+```
+
+Do **not** include:
+
+``` text
+node_modules/
+.env
+.env.local
+production API keys
+JWT secrets
+database passwords
+OAuth client secrets
+```
+
+Use `.env.example` files containing variable names only.
+
+## 2. README
+
+This README documents:
+
+-   Complete project overview
+-   Architecture
+-   Setup instructions
+-   API documentation
+-   Database schema
+-   LLM integration
+-   LLM prompt workflow
+-   Google Calendar setup
+-   Email integration
+-   Failure handling
+-   Double-booking prevention
+-   Doctor leave conflict handling
+-   Slot validation
+-   Deployment
+-   Security
+-   Testing
+-   Evaluation mapping
+
+## 3. Hosted Application
+
+Frontend:
+
+``` text
+https://healthcare-appointment-manager-red.vercel.app/login
+```
+
+Backend:
+
+``` text
+https://healthcare-appointment-manager-api-nalf.onrender.com/
+```
+
+------------------------------------------------------------------------
+
+# Evaluation Checklist
+
+  -----------------------------------------------------------------------
+  Evaluation Area                     Implementation
+  ----------------------------------- -----------------------------------
+  Problem solving                     Slot validation, leave checks,
+                                      database constraint, notification
+                                      isolation
+
+  Double booking                      Backend validation + PostgreSQL
+                                      unique constraint
+
+  Doctor leave                        `DoctorLeave` model + availability
+                                      validation
+
+  Slot conflicts                      Backend revalidation before booking
+
+  Notification reliability            Brevo HTTPS API + independent
+                                      background email processing
+
+  LLM quality                         Gemini pre-visit and post-visit
+                                      summarization
+
+  LLM failure handling                Errors isolated from appointment
+                                      persistence
+
+  Database design                     PostgreSQL + Prisma relational
+                                      schema
+
+  API design                          Express REST API with modular
+                                      routes/controllers
+
+  Authentication                      JWT + bcrypt
+
+  Authorization                       Patient/Doctor/Admin role
+                                      middleware
+
+  Email integration                   Brevo transactional API
+
+  Google Calendar                     Dedicated calendar service + OAuth
+                                      setup documentation
+
+  Deployment                          Vercel + Render + PostgreSQL
+
+  Documentation                       Setup, architecture, APIs, schema,
+                                      AI, email, calendar and failure
+                                      handling
+  -----------------------------------------------------------------------
+
+------------------------------------------------------------------------
+
+# Security / Submission Note
+
+Never place real secrets inside the ZIP file or README.
+
+Use:
+
+``` text
+backend/.env.example
+frontend/.env.example
+```
+
+with placeholders such as:
+
+``` env
+DATABASE_URL=
+JWT_SECRET=
+GEMINI_API_KEY=
+BREVO_API_KEY=
+EMAIL_FROM=
+EMAIL_FROM_NAME=
+```
+
+The evaluator should receive the source code and setup documentation,
+while production secrets remain configured in the deployment platforms.
