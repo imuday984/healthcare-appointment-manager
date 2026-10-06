@@ -1,1012 +1,112 @@
-# Healthcare Appointment Manager
+# Multi-Agentic RAG Customer Support System (Travel Demo)
 
-A full-stack healthcare appointment management platform connecting
-**patients, doctors, and administrators** through a single web
-application.
-
-It supports registration/login, role-based access, doctor approval,
-appointment scheduling, doctor availability and leave management,
-consultation notes, prescriptions, AI-powered summaries using Google
-Gemini, automated email notifications using the Brevo HTTPS API, and
-cloud deployment.
-
-## Live Application
-
-**Frontend:**
-https://healthcare-appointment-manager-red.vercel.app/login
-
-**Backend API:**
-https://healthcare-appointment-manager-api-nalf.onrender.com/
-
-## Roles
-
-  ---------------------------------------------------------------------
-  Role                               Capabilities
-  ---------------------------------- ----------------------------------
-  Patient                            Register/login, find doctors,
-                                     book/cancel appointments, enter
-                                     symptoms, generate pre-visit AI
-                                     summaries, view prescriptions and
-                                     post-visit summaries
-
-  Doctor                             Register/login, manage
-                                     appointments, add consultation
-                                     notes, add prescriptions, generate
-                                     post-visit AI summaries
-
-  Admin                              Login, manage users/doctors,
-                                     approve doctors, monitor the
-                                     platform
-  ---------------------------------------------------------------------
-
-## Demo Admin Account
-
-``` text
-Email: admin@healthcare.com
-Password: Admin@12345
-Role: ADMIN
-```
-
-**Security:** These are demo credentials for the current project. Change
-the password for any real deployment and never publish real production
-administrator credentials.
+## Project overview
+This repository now includes a complete college-demo travel support platform with:
+- FastAPI backend (deterministic workflow router + tools + approvals + SQLite)
+- React + Vite + Tailwind frontend dashboard
+- Qdrant-based semantic RAG pipeline
+- Seeded mock travel data for reliable demonstration
 
 ## Architecture
-
-``` text
-React + Vite Frontend
-        │
-        │ HTTPS / REST API
-        ▼
-Node.js + Express Backend
-        │
-        ├──────────────► PostgreSQL + Prisma
-        │
-        ├──────────────► Google Gemini
-        │
-        └──────────────► Brevo HTTPS Email API
-```
-
-### Deployment
-
--   Frontend: Vercel
--   Backend: Render
--   Database: PostgreSQL
--   AI: Google Gemini
--   Email: Brevo Transactional Email API
-
-## Technology Stack
-
-### Frontend
-
--   React
--   Vite
--   React Router
--   Axios
--   CSS
-
-### Backend
-
--   Node.js
--   Express.js
--   JWT
--   bcryptjs
--   Prisma
--   PostgreSQL
--   Google Gemini (`@google/genai`)
--   node-cron
--   Google Calendar integration
--   Brevo API
-
-## Project Structure
-
-``` text
-healthcare-appointment-manager/
-│
-├── frontend/
-│   ├── src/
-│   │   ├── api.js
-│   │   ├── App.jsx
-│   │   └── pages/
-│   │       ├── Login.jsx
-│   │       ├── Register.jsx
-│   │       ├── PatientDashboard.jsx
-│   │       ├── DoctorDashboard.jsx
-│   │       └── AdminDashboard.jsx
-│   └── package.json
-│
-├── backend/
-│   ├── src/
-│   │   ├── server.js
-│   │   ├── auth/
-│   │   ├── appointment/
-│   │   └── services/
-│   │       ├── ai.service.js
-│   │       ├── calendar.service.js
-│   │       ├── email.service.js
-│   │       └── reminder.service.js
-│   ├── prisma/
-│   │   └── schema.prisma
-│   └── package.json
-│
-└── README.md
-```
-
-## Complete Project Workflow
-
-### Patient
-
-1.  Registers an account.
-2.  Logs in.
-3.  Views available doctors.
-4.  Selects a doctor, date, and time slot.
-5.  Enters symptoms and books an appointment.
-6.  The appointment is stored in PostgreSQL.
-7.  A pre-visit AI summary can be generated from the symptoms.
-8.  The patient can view appointment status, consultation notes,
-    prescription, and post-visit summary.
-9.  The patient can cancel a booked appointment.
-
-### Doctor
-
-1.  Registers as a doctor.
-2.  Admin approves the doctor.
-3.  Doctor logs in to the doctor dashboard.
-4.  Views scheduled appointments.
-5.  Adds consultation notes.
-6.  Adds a prescription.
-7.  Generates an AI post-visit summary from the consultation notes and
-    prescription.
-8.  The appointment becomes `COMPLETED`.
-9.  The patient can then see the post-visit information.
-
-### Admin
-
-The administrator manages the platform and doctor approval process
-through the Admin Dashboard.
-
-## Authentication
-
-Authentication uses JWT.
-
-``` text
-Email + Password
-       ↓
-Backend validates credentials
-       ↓
-bcrypt password comparison
-       ↓
-JWT generated
-       ↓
-Frontend stores token
-       ↓
-Token attached to protected API requests
-```
-
-Supported roles:
-
-``` text
-PATIENT
-DOCTOR
-ADMIN
-```
-
-Role-based middleware prevents users from accessing routes belonging to
-other roles.
-
-## Database
-
-The PostgreSQL database is managed through Prisma.
-
-Main models:
-
-``` text
-User
-Doctor
-DoctorLeave
-Appointment
-```
-
-### User
-
-Stores name, email, hashed password, role, and creation date.
-
-### Doctor
-
-Stores doctor profile information such as specialization, working hours,
-and slot duration.
-
-### DoctorLeave
-
-Stores doctor leave dates and optional reasons.
-
-### Appointment
-
-Stores:
-
--   Doctor
--   Patient
--   Start/end time
--   Status
--   Symptoms
--   Consultation notes
--   Prescription
--   AI pre-visit summary
--   AI post-visit summary
-
-A unique constraint prevents two appointments for the same doctor and
-start time.
-
-## AI Features
-
-Google Gemini is used for two features.
-
-### Pre-Visit AI Summary
-
-``` text
-Patient symptoms
-      ↓
-Backend
-      ↓
-Gemini
-      ↓
-AI summary
-      ↓
-Appointment.aiSummary
-```
-
-### Post-Visit AI Summary
-
-``` text
-Consultation notes + Prescription
-             ↓
-           Gemini
-             ↓
-      Post-visit summary
-             ↓
-    Appointment.postVisitSummary
-             ↓
-       Patient dashboard
-```
-
-The AI is an assistance/summarization feature and does not replace
-professional medical judgment.
-
-## Email System
-
-The production system uses the **Brevo HTTPS API**.
-
-Originally, Nodemailer SMTP was used. During Render deployment, SMTP
-connections timed out because the production environment restricted
-outbound SMTP ports. The application was therefore changed to use Brevo
-over HTTPS.
-
-Current flow:
-
-``` text
-Render Backend
-      ↓ HTTPS
-Brevo API
-      ↓
-Patient / Doctor email
-```
-
-Emails include:
-
--   Patient booking confirmation
--   Doctor new-appointment notification
--   Patient cancellation notification
--   Doctor cancellation notification
-
-Email processing runs in the background so a slow email provider cannot
-keep an appointment stuck in `Booking...`.
-
-## Important API Routes
-
-### Authentication
-
-``` http
-POST /api/auth/register
-POST /api/auth/login
-```
-
-### Patient
-
-``` http
-POST  /api/appointments
-GET   /api/appointments/my
-PATCH /api/appointments/:id/cancel
-POST  /api/appointments/:id/ai-summary
-```
-
-### Doctor
-
-``` http
-GET   /api/appointments/doctor
-PATCH /api/appointments/:id/notes
-PATCH /api/appointments/:id/prescription
-POST  /api/appointments/:id/post-visit-summary
-```
-
-Protected routes require JWT authentication and the appropriate role.
-
-## Environment Variables
-
-Create `backend/.env` locally:
-
-``` env
-DATABASE_URL=your_postgresql_connection_string
-JWT_SECRET=your_jwt_secret
-GEMINI_API_KEY=your_gemini_api_key
-BREVO_API_KEY=your_brevo_api_key
-EMAIL_FROM=your_verified_sender@example.com
-EMAIL_FROM_NAME=Healthcare Appointment Manager
-```
-
-Never commit `.env` or API keys to GitHub.
-
-## Local Setup
-
-### Backend
-
-``` bash
-cd backend
-npm install
-npx prisma generate
-npm start
-```
-
-Backend:
-
-``` text
-http://localhost:5000
-```
-
-### Frontend
-
-``` bash
-cd frontend
-npm install
-npm run dev
-```
-
-Frontend:
-
-``` text
-http://localhost:5173
-```
-
-## Production Deployment
-
-### Frontend --- Vercel
-
-``` text
-https://healthcare-appointment-manager-red.vercel.app
-```
-
-### Backend --- Render
-
-``` text
-https://healthcare-appointment-manager-api-nalf.onrender.com
-```
-
-Production environment variables are configured in Render.
-
-### Database
-
-Production uses PostgreSQL rather than the local pgAdmin/PostgreSQL
-instance.
-
-### Email
-
-Production email delivery uses Brevo's HTTPS API.
-
-### AI
-
-Production AI requests use Google Gemini.
-
-## Security
-
-The project implements:
-
--   JWT authentication
--   bcrypt password hashing
--   Role-based authorization
--   Protected API routes
--   Environment variables for secrets
--   Patient/doctor ownership validation
--   Duplicate appointment protection
--   No plain-text password storage
--   HTTPS-based transactional email
--   Production secrets kept outside source control
-
-For a real healthcare deployment, additional privacy, compliance, audit,
-encryption, access-control, monitoring, and data-retention requirements
-would be necessary.
-
-## Testing Checklist
-
-### Authentication
-
--   [ ] Patient registration
--   [ ] Doctor registration
--   [ ] Admin login
--   [ ] Invalid credentials
--   [ ] Role-based redirects
-
-### Patient
-
--   [ ] View doctors
--   [ ] Book appointment
--   [ ] Prevent duplicate slots
--   [ ] Generate pre-visit AI summary
--   [ ] View appointment history
--   [ ] Cancel appointment
-
-### Doctor
-
--   [ ] View appointments
--   [ ] Add consultation notes
--   [ ] Add prescription
--   [ ] Generate post-visit AI summary
--   [ ] Complete appointment
-
-### Admin
-
--   [ ] Login
--   [ ] Manage users
--   [ ] Approve doctors
-
-### Notifications
-
--   [ ] Patient booking email
--   [ ] Doctor booking email
--   [ ] Patient cancellation email
--   [ ] Doctor cancellation email
-
-### Production
-
--   [ ] Vercel frontend
--   [ ] Render backend
--   [ ] PostgreSQL
--   [ ] Gemini API
--   [ ] Brevo API
--   [ ] Environment variables
--   [ ] CORS
--   [ ] HTTPS
-
-## Future Improvements
-
--   Refresh-token authentication
--   Password reset
--   Multi-factor authentication
--   Doctor/patient profile management
--   Medical document uploads
--   Prescription PDF generation
--   Advanced admin analytics
--   Appointment reminders
--   Calendar synchronization
--   Doctor search and filtering
--   Pagination
--   Audit logging
--   Rate limiting
--   Stronger input validation
--   Production monitoring and error tracking
-
-## Disclaimer
-
-This is an educational/software engineering project. It is not intended
-to replace professional medical systems or clinical decision-making.
-
-AI-generated summaries are informational and must be reviewed by
-qualified healthcare professionals.
-
-## Author
-
-**Uday Vardhan Singh Rathore**\
-Electrical and Computer Science Engineering, VIT Chennai
-
-Interests include software development, full-stack development, backend
-development, AI/ML, and Data Structures & Algorithms.
-
-## Project Summary
-
-Healthcare Appointment Manager demonstrates a complete modern full-stack
-workflow:
-
-``` text
-Patients
-   ↕
-Appointments
-   ↕
-Doctors
-   ↕
-Admin
-   │
-   ├── PostgreSQL / Prisma
-   ├── Google Gemini AI
-   ├── Brevo Email API
-   └── Cloud deployment
-```
-
-The project combines authentication, role-based authorization,
-relational database design, REST APIs, appointment scheduling, AI
-integration, transactional email, and cloud deployment into one
-production-style application.
-
-------------------------------------------------------------------------
-
-# Evaluation-Focused Documentation
-
-This section maps the implementation directly to the stated evaluation
-criteria.
-
-## 1. Problem-Solving Approach
-
-### Double-booking prevention
-
-The appointment system uses both application-level validation and a
-database-level constraint.
-
-Before booking, the backend validates the requested doctor and slot and
-checks whether an appointment already exists.
-
-The database additionally enforces uniqueness for:
-
-``` text
-doctorId + startTime
-```
-
-This protects against race conditions where two users attempt to book
-the same slot concurrently.
-
-### Doctor leave conflict
-
-Doctor leave dates are stored separately in `DoctorLeave`.
-
-The availability/booking flow checks the selected doctor and date
-against leave records before allowing a slot to be booked.
-
-``` text
-Doctor + Date
-     ↓
-Check leave
-     ↓
-Leave?
- ┌───┴───┐
-YES      NO
- ↓        ↓
-Reject   Generate/check slots
-```
-
-### Slot conflict / stale availability
-
-The frontend only displays availability; it is not treated as the final
-authority.
-
-When a booking request reaches the backend, the server validates the
-slot again.
-
-This prevents a stale browser page from creating an invalid appointment.
-
-### Notification reliability
-
-Production notification delivery uses the Brevo HTTPS API rather than
-direct SMTP.
-
-The email operation is separated from appointment creation so that a
-temporary email-provider failure does not undo a successful appointment.
-
-Email failures are logged and returned as a notification failure rather
-than corrupting appointment data.
-
-------------------------------------------------------------------------
-
-## 2. LLM Quality and Failure Handling
-
-### Pre-visit AI
-
-Patient-provided symptoms are sent to the Gemini service to create a
-concise pre-visit summary.
-
-``` text
-Symptoms
-   ↓
-AI service
-   ↓
-Gemini
-   ↓
-Pre-visit summary
-   ↓
-Appointment record
-```
-
-### Post-visit AI
-
-The doctor provides consultation notes and a prescription.
-
-``` text
-Consultation Notes
-        +
-Prescription
-        ↓
-AI service
-        ↓
-Gemini
-        ↓
-Post-visit summary
-        ↓
-Patient dashboard
-```
-
-The post-visit result is stored with the appointment.
-
-### Failure handling
-
-LLM failures are handled independently from the appointment lifecycle.
-
-If Gemini is unavailable:
-
--   The backend logs the failure.
--   The API returns an appropriate error response.
--   Existing appointment data remains intact.
--   The appointment is not deleted because of an AI failure.
-
-The AI is used for summarization and information organization, not
-autonomous clinical decision-making.
-
-------------------------------------------------------------------------
-
-## 3. Database Schema Design
-
-The relational schema is centered around:
-
-``` text
-User
-Doctor
-DoctorLeave
-Appointment
-```
-
-Relationships:
-
-``` text
-User 1 ───── 0..1 Doctor
-User 1 ───── * Appointment
-Doctor 1 ──── * Appointment
-Doctor 1 ──── * DoctorLeave
-```
-
-The design provides:
-
--   Referential integrity
--   Normalized user/doctor information
--   Explicit leave records
--   Patient/doctor appointment relationships
--   Appointment status tracking
--   AI result persistence
--   Database-level duplicate-slot protection
-
-------------------------------------------------------------------------
-
-## 4. API and Code Structure
-
-The backend separates responsibilities into:
-
-``` text
-Routes
-  ↓
-Controllers
-  ↓
-Middleware
-  ↓
-Services
-  ↓
-Prisma / PostgreSQL
-```
-
-Important modules include:
-
-``` text
-src/auth/
-src/appointment/
-src/services/
-```
-
-Services isolate external integrations such as:
-
-``` text
-ai.service.js
-email.service.js
-calendar.service.js
-reminder.service.js
-```
-
-This keeps external API logic out of the core appointment routes.
-
-------------------------------------------------------------------------
-
-## 5. Email Integration
-
-The application supports:
-
-### Patient notifications
-
--   Appointment booking confirmation
--   Appointment cancellation
-
-### Doctor notifications
-
--   New appointment notification
--   Appointment cancellation notification
-
-Production delivery:
-
-``` text
-Express Backend
-      ↓ HTTPS
-Brevo API
-      ↓
-Recipient mailbox
-```
-
-The API key is stored in the production environment and is not
-hard-coded.
-
-------------------------------------------------------------------------
-
-## 6. Google Calendar Integration
-
-The project includes a dedicated calendar service for Google Calendar
-integration.
-
-Required production setup:
-
-1.  Create a Google Cloud project.
-2.  Enable Google Calendar API.
-3.  Configure OAuth credentials.
-4.  Configure the required redirect URI.
-5.  Store OAuth credentials securely as environment variables.
-6.  Authorize the required Google account/calendar.
-7.  Use the calendar service when creating appointment events.
-
-No Google credentials should be committed to source control.
-
-------------------------------------------------------------------------
-
-## 7. REST API Documentation
-
-### Authentication
-
-``` http
-POST /api/auth/register
-POST /api/auth/login
-```
-
-### Patient
-
-``` http
-POST  /api/appointments
-GET   /api/appointments/my
-PATCH /api/appointments/:id/cancel
-POST  /api/appointments/:id/ai-summary
-```
-
-### Doctor
-
-``` http
-GET   /api/appointments/doctor
-PATCH /api/appointments/:id/notes
-PATCH /api/appointments/:id/prescription
-POST  /api/appointments/:id/post-visit-summary
-```
-
-Protected endpoints require:
-
-``` http
-Authorization: Bearer <JWT>
-```
-
-Role-based middleware determines whether the authenticated user is
-allowed to access each operation.
-
-------------------------------------------------------------------------
-
-# System Design Write-Up
-
-The Healthcare Appointment Manager follows a client-server architecture.
-The React/Vite frontend provides separate experiences for patients,
-doctors, and administrators and communicates with the Node.js/Express
-backend through HTTPS REST APIs. JWT authentication identifies users,
-while role-based middleware restricts protected operations. Passwords
-are hashed using bcrypt before being stored.
-
-The backend uses PostgreSQL through Prisma ORM. The main entities are
-users, doctors, doctor leave records, and appointments. A doctor is
-associated with a user account, while appointments connect a patient
-user with a doctor. Doctor working hours and slot duration are used to
-generate appointment slots. Leave records prevent appointments from
-being scheduled when a doctor is unavailable.
-
-Double-booking prevention is implemented at both the application and
-database layers. The backend checks the requested slot before creating
-an appointment, and PostgreSQL enforces a unique doctor/start-time
-constraint. This is important because frontend availability can become
-stale and concurrent requests may arrive at the same time.
-
-The appointment workflow also handles cancellation and completion.
-Patients can cancel appointments, while doctors can add consultation
-notes and prescriptions. After consultation, the system can use Google
-Gemini to create a structured post-visit summary. A separate pre-visit
-AI workflow can summarize patient symptoms before consultation. AI
-errors are isolated from appointment persistence so an external LLM
-failure does not corrupt the appointment.
-
-Email notifications are implemented through the Brevo HTTPS API. The
-system sends booking and cancellation notifications to the relevant
-patient and doctor. Email processing is separated from the core booking
-operation so a notification outage does not cause a valid appointment
-transaction to fail. This design was selected after production SMTP
-connections from the Render environment experienced connection timeouts.
-
-Google Calendar functionality is isolated in a calendar service. A
-production configuration can use Google Cloud OAuth credentials to
-create calendar events from appointment information. Secrets for the
-database, JWT, Gemini, Brevo, and Google services are supplied through
-environment variables rather than source code.
-
-The frontend is deployed on Vercel and the backend on Render. PostgreSQL
-provides persistent relational storage, Gemini provides LLM
-capabilities, and Brevo provides transactional email delivery. The
-architecture separates presentation, authentication, business logic,
-database access, and external integrations, making the system modular
-and easier to maintain.
-
-------------------------------------------------------------------------
-
-# Submission Deliverables
-
-The final submission should contain:
-
-## 1. Source Code ZIP
-
-``` text
-healthcare-appointment-manager.zip
-```
-
-Recommended contents:
-
-``` text
-healthcare-appointment-manager/
-├── frontend/
-├── backend/
-└── README.md
-```
-
-Do **not** include:
-
-``` text
-node_modules/
-.env
-.env.local
-production API keys
-JWT secrets
-database passwords
-OAuth client secrets
-```
-
-Use `.env.example` files containing variable names only.
-
-## 2. README
-
-This README documents:
-
--   Complete project overview
--   Architecture
--   Setup instructions
--   API documentation
--   Database schema
--   LLM integration
--   LLM prompt workflow
--   Google Calendar setup
--   Email integration
--   Failure handling
--   Double-booking prevention
--   Doctor leave conflict handling
--   Slot validation
--   Deployment
--   Security
--   Testing
--   Evaluation mapping
-
-## 3. Hosted Application
-
-Frontend:
-
-``` text
-https://healthcare-appointment-manager-red.vercel.app/login
-```
-
-Backend:
-
-``` text
-https://healthcare-appointment-manager-api-nalf.onrender.com/
-```
-
-------------------------------------------------------------------------
-
-# Evaluation Checklist
-
-  -----------------------------------------------------------------------
-  Evaluation Area                     Implementation
-  ----------------------------------- -----------------------------------
-  Problem solving                     Slot validation, leave checks,
-                                      database constraint, notification
-                                      isolation
-
-  Double booking                      Backend validation + PostgreSQL
-                                      unique constraint
-
-  Doctor leave                        `DoctorLeave` model + availability
-                                      validation
-
-  Slot conflicts                      Backend revalidation before booking
-
-  Notification reliability            Brevo HTTPS API + independent
-                                      background email processing
-
-  LLM quality                         Gemini pre-visit and post-visit
-                                      summarization
-
-  LLM failure handling                Errors isolated from appointment
-                                      persistence
-
-  Database design                     PostgreSQL + Prisma relational
-                                      schema
-
-  API design                          Express REST API with modular
-                                      routes/controllers
-
-  Authentication                      JWT + bcrypt
-
-  Authorization                       Patient/Doctor/Admin role
-                                      middleware
-
-  Email integration                   Brevo transactional API
-
-  Google Calendar                     Dedicated calendar service + OAuth
-                                      setup documentation
-
-  Deployment                          Vercel + Render + PostgreSQL
-
-  Documentation                       Setup, architecture, APIs, schema,
-                                      AI, email, calendar and failure
-                                      handling
-  -----------------------------------------------------------------------
-
-------------------------------------------------------------------------
-
-# Security / Submission Note
-
-Never place real secrets inside the ZIP file or README.
-
-Use:
-
-``` text
-backend/.env.example
-frontend/.env.example
-```
-
-with placeholders such as:
-
-``` env
-DATABASE_URL=
-JWT_SECRET=
-GEMINI_API_KEY=
-BREVO_API_KEY=
-EMAIL_FROM=
-EMAIL_FROM_NAME=
-```
-
-The evaluator should receive the source code and setup documentation,
-while production secrets remain configured in the deployment platforms.
+User → Primary Assistant → Intent Classification → Specialized Agent (Flight/Hotel/Car/Excursion) → Tool/RAG → Safe/Sensitive Check → Human Approval (for sensitive) → SQLite transaction → Response
+
+## Tech stack
+- Backend: Python 3.11+, FastAPI, SQLAlchemy, SQLite
+- AI: OpenAI API + embeddings (demo deterministic embedding fallback when API key absent)
+- Vector DB: Qdrant (local embedded by default, remote URL supported)
+- Frontend: React, Vite, Tailwind CSS
+
+## Project structure
+- `backend/app/` – API, agents, graph, tools, rag, database, schemas, services
+- `backend/data/knowledge/` – policy and FAQ documents
+- `backend/scripts/index_documents.py` – indexing script
+- `frontend/src/` – dashboard and chat UI
+- `tests/` – backend tests
+- `requirements.txt` – Python dependencies
+- `.env.example` – environment variables template
+
+## Setup
+1. Create and activate Python 3.11+ virtualenv
+2. Install backend dependencies:
+   - `pip install -r requirements.txt`
+3. Install frontend dependencies:
+   - `cd frontend && npm install`
+4. Copy env:
+   - `cp .env.example .env`
+
+## Environment variables
+Key values in `.env.example`:
+- `OPENAI_API_KEY`
+- `OPENAI_MODEL`
+- `EMBEDDING_MODEL`
+- `QDRANT_URL`, `QDRANT_API_KEY`, `QDRANT_COLLECTION`
+- `DATABASE_URL`
+- `DEMO_MODE`
+- `CORS_ORIGINS`
+- `VITE_API_URL`
+
+## Qdrant setup
+- Default demo mode uses local embedded Qdrant storage under `backend/data/qdrant_local`.
+- To use hosted Qdrant, set `QDRANT_URL` and `QDRANT_API_KEY`.
+
+## RAG indexing
+- Run: `PYTHONPATH=backend python backend/scripts/index_documents.py`
+- This loads markdown docs, chunks with `chunk_size=300`, `chunk_overlap=20`, embeds, and writes to Qdrant.
+
+## Database setup
+- SQLite is auto-initialized on backend startup.
+- Demo data includes:
+  - Bookings: `FL-1001`, `HT-2001`, `CAR-3001`
+  - Mock flights/hotels/cars/excursions
+
+## Run backend
+- `PYTHONPATH=backend uvicorn app.main:app --reload --port 8000`
+- Health: `GET http://localhost:8000/api/health`
+
+## Run frontend
+- `cd frontend && npm run dev`
+- Open `http://localhost:5173`
+
+## API endpoints
+- `GET /api/health`
+- `POST /api/chat`
+- `GET /api/conversations`
+- `GET /api/conversations/{id}`
+- `GET /api/bookings`
+- `GET /api/bookings/{id}`
+- `GET /api/approvals`
+- `POST /api/approvals/{id}/approve`
+- `POST /api/approvals/{id}/reject`
+- `GET /api/rag/status`
+- `POST /api/rag/search`
+- `GET /api/flights`
+- `GET /api/hotels`
+- `GET /api/cars`
+- `GET /api/excursions`
+
+## Demo scenarios
+Try these prompts in AI Chat:
+- Find flights from Chennai to Delhi
+- Find hotels in Goa
+- What is the cancellation policy?
+- Cancel my flight FL-1001
+- Change my flight FL-1001
+- Plan a 5 day trip to Kerala
+- Find a rental car in Mumbai
+
+## Human-in-the-loop
+Sensitive actions (book/update/cancel) create approval requests in SQLite and do not execute immediately. Approval/Rejection is enforced server-side before any transaction.
+
+## Testing
+- Run: `pytest`
+- Covers routing, tool search, RAG retrieval, approval flow, transaction approval/rejection, ownership validation, and cancellation.
+
+## Deployment
+- Backend: deploy FastAPI service (set env vars securely)
+- Frontend: deploy Vite build
+- Use managed Qdrant + persistent DB for production
+
+## Limitations
+- Demo intent/entity extraction uses deterministic routing fallback for reliability.
+- Hosted OpenAI responses are not required for local demo mode.
+- Mock inventory and policy docs are intentionally curated for viva/demo clarity.
