@@ -2,7 +2,7 @@
 
 ## Project overview
 This repository now includes a complete college-demo travel support platform with:
-- FastAPI backend (LangGraph + tools + approvals + SQLite)
+- FastAPI backend (deterministic workflow router + tools + approvals + SQLite)
 - React + Vite + Tailwind frontend dashboard
 - Qdrant-based semantic RAG pipeline
 - Seeded mock travel data for reliable demonstration
@@ -11,7 +11,7 @@ This repository now includes a complete college-demo travel support platform wit
 User → Primary Assistant → Intent Classification → Specialized Agent (Flight/Hotel/Car/Excursion) → Tool/RAG → Safe/Sensitive Check → Human Approval (for sensitive) → SQLite transaction → Response
 
 ## Tech stack
-- Backend: Python 3.11+, FastAPI, LangChain, LangGraph, SQLAlchemy, SQLite
+- Backend: Python 3.11+, FastAPI, SQLAlchemy, SQLite
 - AI: OpenAI API + embeddings (demo deterministic embedding fallback when API key absent)
 - Vector DB: Qdrant (local embedded by default, remote URL supported)
 - Frontend: React, Vite, Tailwind CSS

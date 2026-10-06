@@ -26,9 +26,5 @@ class DemoEmbeddingModel:
 
 
 def get_embedding_model():
-    settings = get_settings()
-    if settings.openai_api_key:
-        from langchain_openai import OpenAIEmbeddings
-
-        return OpenAIEmbeddings(model=settings.embedding_model, api_key=settings.openai_api_key)
+    _ = get_settings()
     return DemoEmbeddingModel()

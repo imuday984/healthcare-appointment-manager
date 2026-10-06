@@ -3,7 +3,6 @@ from __future__ import annotations
 from dataclasses import dataclass
 from pathlib import Path
 
-from langchain.text_splitter import RecursiveCharacterTextSplitter
 from qdrant_client import QdrantClient
 from qdrant_client.http.models import Distance, PointStruct, VectorParams
 
@@ -48,11 +47,10 @@ class RAGService:
             )
 
     def index_documents(self) -> dict:
-        splitter = RecursiveCharacterTextSplitter(chunk_size=self.chunk_size, chunk_overlap=self.chunk_overlap)
         chunks: list[tuple[str, str]] = []
         for file in sorted(self.knowledge_dir.glob("*.md")):
             text = file.read_text(encoding="utf-8")
-            for chunk in splitter.split_text(text):
+            for chunk in self._split_text(text):
                 chunks.append((file.name, chunk))
 
         if not chunks:
@@ -69,6 +67,19 @@ class RAGService:
         )
         self.qdrant.upsert(collection_name=self.collection, points=points)
         return {"document_count": len({s for s, _ in chunks}), "chunk_count": len(chunks)}
+
+    def _split_text(self, text: str) -> list[str]:
+        words = text.split()
+        if not words:
+            return []
+        chunks: list[str] = []
+        start = 0
+        step = max(1, self.chunk_size - self.chunk_overlap)
+        while start < len(words):
+            end = min(start + self.chunk_size, len(words))
+            chunks.append(" ".join(words[start:end]))
+            start += step
+        return chunks
 
     def search(self, query: str, top_k: int | None = None) -> RAGResult:
         k = top_k or self.top_k
