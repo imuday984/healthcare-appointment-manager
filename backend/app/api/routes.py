@@ -1,10 +1,10 @@
 import json
+import logging
 
 from fastapi import APIRouter, Depends, HTTPException
 from sqlalchemy.orm import Session
 
 from app.core.config import get_settings
-from app.database.models import ApprovalRequest, Booking, CarRental, Excursion, Flight, Hotel
 from app.database.session import get_db
 from app.graph.workflow import run_workflow
 from app.rag.service import rag_service
@@ -17,6 +17,7 @@ from app.tools.travel import TravelTools
 
 router = APIRouter(prefix="/api")
 settings = get_settings()
+logger = logging.getLogger(__name__)
 
 
 @router.get("/health", response_model=HealthResponse)
@@ -35,7 +36,11 @@ def chat(payload: ChatRequest, db: Session = Depends(get_db)):
     history.append(user_message)
 
     conv_service.add_message(convo.id, "user", payload.message)
-    result = run_workflow(db, payload.user_id, convo.conversation_id, history)
+    try:
+        result = run_workflow(db, payload.user_id, convo.conversation_id, history)
+    except Exception as exc:
+        logger.exception("Chat workflow failed: %s", exc)
+        raise HTTPException(status_code=500, detail="Unable to process request right now. Please try again.") from exc
 
     conv_service.add_message(
         convo.id,
@@ -178,13 +183,21 @@ def reject_action(approval_id: int, db: Session = Depends(get_db)):
 
 @router.get("/rag/status", response_model=RAGStatusResponse)
 def rag_status():
-    return RAGStatusResponse(**rag_service.status())
+    try:
+        return RAGStatusResponse(**rag_service.status())
+    except Exception as exc:
+        logger.exception("RAG status failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Knowledge service is unavailable.") from exc
 
 
 @router.post("/rag/search", response_model=RAGSearchResponse)
 def rag_search(payload: RAGSearchRequest):
-    result = rag_service.search(payload.query, payload.top_k)
-    return RAGSearchResponse(answer=result.answer, sources=result.sources, context=result.context)
+    try:
+        result = rag_service.search(payload.query, payload.top_k)
+        return RAGSearchResponse(answer=result.answer, sources=result.sources, context=result.context)
+    except Exception as exc:
+        logger.exception("RAG search failed: %s", exc)
+        raise HTTPException(status_code=503, detail="Unable to search knowledge base right now.") from exc
 
 
 @router.get("/flights")

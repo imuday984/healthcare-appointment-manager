@@ -26,6 +26,14 @@ def _extract_after_keyword(message: str, keyword: str) -> str | None:
     return match.group(1).strip().title() if match else None
 
 
+def _extract_trip_destination(message: str) -> str | None:
+    trip_match = re.search(r"(?:\d+\s*day[s]?\s+)?([a-zA-Z ]+)\s+trip", message, flags=re.IGNORECASE)
+    if trip_match:
+        return trip_match.group(1).strip().title()
+    plan_match = re.search(r"plan\s+(?:a\s+)?(?:\d+\s*day[s]?\s+)?(?:to\s+)?([a-zA-Z ]+)", message, flags=re.IGNORECASE)
+    return plan_match.group(1).strip().title() if plan_match else None
+
+
 def classify_intent(message: str, history: list[dict] | None = None) -> RouteDecision:
     text = message.lower()
     context_city = None
@@ -57,7 +65,7 @@ def classify_intent(message: str, history: list[dict] | None = None) -> RouteDec
         return RouteDecision("SEARCH_HOTELS", "Hotel Assistant", "search_hotels", {"city": city})
 
     if "car" in text or "rental" in text:
-        if "book" in text or "rent" in text:
+        if "book" in text:
             if "update" in text or "change" in text:
                 return RouteDecision("UPDATE_CAR", "Car Rental Assistant", "update_car", {"booking_id": "CAR-3001", "changes": {"request": "Updated pickup"}})
             return RouteDecision("BOOK_CAR", "Car Rental Assistant", "book_car", {"car_id": 1, "start_date": "2026-10-20", "end_date": "2026-10-22"})
@@ -67,7 +75,7 @@ def classify_intent(message: str, history: list[dict] | None = None) -> RouteDec
     if "trip" in text or "excursion" in text or "itinerary" in text:
         if "book" in text:
             return RouteDecision("BOOK_EXCURSION", "Excursion Assistant", "book_excursion", {"excursion_id": 1, "start_date": "2026-11-01", "end_date": "2026-11-05"})
-        destination = _extract_after_keyword(message, "to") or _extract_after_keyword(message, "for")
+        destination = _extract_trip_destination(message) or _extract_after_keyword(message, "to") or _extract_after_keyword(message, "for")
         return RouteDecision("SEARCH_EXCURSIONS", "Excursion Assistant", "search_excursions", {"destination": destination})
 
     return RouteDecision("GENERAL_QUERY", "Primary Assistant", "search_faq", {"query": message})

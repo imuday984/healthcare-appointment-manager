@@ -74,8 +74,9 @@ class RAGService:
         k = top_k or self.top_k
         query_vec = self.embedding_model.embed_query(query)
         hits = self.qdrant.search(collection_name=self.collection, query_vector=query_vec, limit=k)
-        context = [hit.payload.get("text", "") for hit in hits if hit.payload]
-        sources = list({hit.payload.get("source", "unknown") for hit in hits if hit.payload})
+        filtered_hits = [hit for hit in hits if hit.payload and float(hit.score or 0.0) >= 0.2]
+        context = [hit.payload.get("text", "") for hit in filtered_hits]
+        sources = list({hit.payload.get("source", "unknown") for hit in filtered_hits})
 
         if not context:
             answer = "I could not find this information in the current knowledge base."
@@ -84,12 +85,18 @@ class RAGService:
         return RAGResult(answer=answer, sources=sources, context=context)
 
     def status(self) -> dict:
-        collection_info = self.qdrant.get_collection(self.collection)
+        try:
+            collection_info = self.qdrant.get_collection(self.collection)
+            chunk_count = int(collection_info.points_count or 0)
+            available = True
+        except Exception:
+            chunk_count = 0
+            available = False
         return {
-            "qdrant_available": True,
+            "qdrant_available": available,
             "collection": self.collection,
             "document_count": len(list(self.knowledge_dir.glob("*.md"))),
-            "chunk_count": int(collection_info.points_count or 0),
+            "chunk_count": chunk_count,
             "embedding_model": self.settings.embedding_model if self.settings.openai_api_key else "demo-deterministic-embeddings",
             "similarity_metric": "cosine",
             "top_k": self.top_k,
